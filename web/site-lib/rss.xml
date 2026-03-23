@@ -1,0 +1,1851 @@
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title><![CDATA[brain_obsidian]]></title><description><![CDATA[Obsidian digital garden]]></description><link>http://github.com/dylang/node-rss</link><image><url>site-lib/media/favicon.png</url><title>brain_obsidian</title><link/></image><generator>Webpage HTML Export plugin for Obsidian</generator><lastBuildDate>Wed, 25 Feb 2026 11:20:35 GMT</lastBuildDate><atom:link href="site-lib/rss.xml" rel="self" type="application/rss+xml"/><pubDate>Wed, 25 Feb 2026 11:20:34 GMT</pubDate><ttl>60</ttl><dc:creator/><item><title><![CDATA[프로젝트 진행 현황]]></title><description><![CDATA[
+Repository: <a rel="noopener nofollow" class="external-link is-unresolved" href="https://github.com/SuperNoobChallenge/nas-server" target="_self">https://github.com/SuperNoobChallenge/nas-server</a> Spring Boot 기반의 개인/그룹 권한 중심 가상 파일 시스템 서버 구현 인증 및 계정 관리 세션 기반 로그인/로그아웃 구현 파일 및 디렉터리 관리 파일/디렉터리 생성, 조회, 이름변경, 이동, 삭제 요청
+디렉터리 트리 구조 조회 기능 제공 권한 관리 정책 디렉터리 및 파일의 read_level, write_level 권한 동기화 배치 작업 처리 용량 관리 및 삭제 작업의 배치 큐 처리 구조 설계 웹 관리 화면 Thymeleaf 기반 서버 렌더링 페이지 (/login, /directories) 구현 Backend: Java, Spring Boot, Spring Security, Spring Data JPA
+Database: MySQL
+View: Thymeleaf
+]]></description><link>개인-파일-공유-서버(진행-중)/프로젝트-진행-현황.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/프로젝트 진행 현황.md</guid><pubDate>Wed, 25 Feb 2026 11:20:23 GMT</pubDate></item><item><title><![CDATA[버전별 수정 사항]]></title><description><![CDATA[
+파일 권한 키를 중심으로 유저 파일과 공유 파일을 분리
+하나의 파일 권한 테이블로 유저 파일과 공유 파일 기능을 지원
+<img alt="Pasted image 20251231165641.png" src="media/pasted-image-20251231165641.png" target="_self" style="width: 500px; max-width: 100%;"> 확장성을 위해 그룹 테이블 구조를 미리 추가
+가상 파일을 가상 디렉터리에 소속시킴<br>
+<img alt="Pasted image 20260109160928.png" src="media/pasted-image-20260109160928.png" target="_self" style="width: 500px; max-width: 100%;"> 배치 작업을 위한 테이블 추가
+파일 업로드를 위한 테이블 추가
+디렉터리 통계 테이블을 디렉터리 테이블에서 분리<br>
+<img alt="Pasted image 20260122174704.png" src="media/pasted-image-20260122174704.png" target="_self" style="width: 500px; max-width: 100%;"> 기존의 단순한 숫자 기반 권한에서 RBAC(역할 기반 접근 제어)으로 수정 중
+]]></description><link>개인-파일-공유-서버(진행-중)/02.-데이터베이스-설계/버전별-수정-사항.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/02. 데이터베이스 설계/버전별 수정 사항.md</guid><pubDate>Wed, 25 Feb 2026 09:39:26 GMT</pubDate><enclosure url="." length="0" type="false"/><content:encoded>&lt;figure&gt;&lt;img src="."&gt;&lt;/figure&gt;</content:encoded></item><item><title><![CDATA[05. schema]]></title><description><![CDATA[-- 1. 외래 키 체크 일시 해제 (참조 무결성으로 인한 오류 방지)
+SET FOREIGN_KEY_CHECKS = 0;-- 2. 배치 작업 및 그룹 관련 테이블 삭제
+DROP TABLE IF EXISTS batch_job_queues;
+DROP TABLE IF EXISTS group_user_permissions;
+DROP TABLE IF EXISTS group_users;
+DROP TABLE IF EXISTS group_invites;
+DROP TABLE IF EXISTS groups;-- 3. 공유 관련 테이블 삭제
+DROP TABLE IF EXISTS share_files;
+DROP TABLE IF EXISTS share_directories;
+DROP TABLE IF EXISTS share_links;-- 4. 업로드 세션 관련 테이블 삭제
+DROP TABLE IF EXISTS upload_parts;
+DROP TABLE IF EXISTS upload_sessions;-- 5. 파일 시스템 관련 테이블 삭제
+DROP TABLE IF EXISTS virtual_files;
+DROP TABLE IF EXISTS real_files;
+DROP TABLE IF EXISTS virtual_directory_stats;
+DROP TABLE IF EXISTS virtual_directories;-- 6. 권한 및 용량 관련 테이블 삭제
+DROP TABLE IF EXISTS capacity_allocations;
+DROP TABLE IF EXISTS file_permission_keys;-- 7. 유저 관련 테이블 삭제
+DROP TABLE IF EXISTS user_permissions;
+DROP TABLE IF EXISTS users;-- 8. 외래 키 체크 재설정
+SET FOREIGN_KEY_CHECKS = 1;CREATE TABLE users (
+user_id bigint unsigned PRIMARY KEY AUTO_INCREMENT COMMENT 'PK, 자동증가',
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 유저에게 할당된 루트 파일 권한',
+inviter_id bigint unsigned COMMENT 'FK: 나를 초대한 유저 (자기참조)',
+login_id varchar(255) UNIQUE NOT NULL COMMENT '로그인 아이디',
+password varchar(255) NOT NULL COMMENT '암호화된 비밀번호',
+email varchar(50) UNIQUE NOT NULL COMMENT '이메일',
+deleted_at datetime COMMENT '비활성화 시기 (Soft Delete)',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE user_permissions (
+user_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: users 테이블과 1:1',
+can_invite_person boolean NOT NULL DEFAULT false,
+can_share_file boolean NOT NULL DEFAULT false,
+can_store_personal boolean NOT NULL DEFAULT false,
+can_create_group boolean NOT NULL DEFAULT false,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE file_permission_keys (
+file_permission_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+parent_permission_id bigint unsigned COMMENT 'FK: 상위 권한 키 (용량 상속)',
+owner_type varchar(10) NOT NULL COMMENT 'USER, GROUP',
+total_capacity bigint NOT NULL DEFAULT 0 COMMENT '총 할당 용량(Byte)',
+available_capacity bigint NOT NULL DEFAULT 0 COMMENT '현재 사용 가능 용량(Byte)',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE capacity_allocations (
+allocation_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+granter_allocation_id bigint unsigned COMMENT 'FK: 용량을 준 상위 할당 ID',
+receiver_permission_id bigint unsigned NOT NULL COMMENT 'FK: 용량을 받는 키',
+giver_permission_id bigint unsigned COMMENT 'FK: 용량을 주는 키 (System=NULL)',
+allocated_size bigint NOT NULL COMMENT '할당되는 용량',
+expiration_date datetime COMMENT '만료일',
+allocation_type varchar(20) NOT NULL COMMENT 'EVENT, GRANT, SYSTEM',
+description varchar(100) COMMENT '세부 내용',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE virtual_directories (
+directory_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 소속 권한 키',
+parent_directory_id bigint unsigned COMMENT 'FK: 부모 디렉터리 (Root=NULL)',
+read_level int NOT NULL DEFAULT 0 COMMENT '읽기 가능 레벨',
+write_level int NOT NULL DEFAULT 0 COMMENT '쓰기 가능 레벨',
+name varchar(100) NOT NULL COMMENT '디렉터리 이름',
+depth_level int NOT NULL DEFAULT 0 COMMENT '디렉터리 깊이 (Root=0)',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE virtual_directory_stats (
+directory_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: 디렉터리와 1:1',
+total_size bigint NOT NULL DEFAULT 0 COMMENT '하위 포함 총 용량',
+directory_count int NOT NULL DEFAULT 0 COMMENT '하위 모든 디렉터리 개수',
+file_count int NOT NULL DEFAULT 0 COMMENT '하위 모든 파일 개수',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE virtual_files (
+virtual_file_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+directory_id bigint unsigned NOT NULL COMMENT 'FK: 소속 디렉터리',
+real_file_id bigint unsigned NOT NULL COMMENT 'FK: 실제 파일 메타데이터',
+read_level int NOT NULL DEFAULT 0 COMMENT '읽기 가능 레벨',
+write_level int NOT NULL DEFAULT 0 COMMENT '쓰기 가능 레벨',
+name varchar(100) NOT NULL COMMENT '파일 이름',
+extension varchar(50) COMMENT '파일 확장자',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE real_files (
+real_file_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+storage_uuid varchar(32) UNIQUE NOT NULL COMMENT '파일이 저장된 이름',
+file_hash char(64) NOT NULL COMMENT 'SHA-256 Hash for Deduplication',
+file_size bigint NOT NULL COMMENT '파일 크기',
+storage_path varchar(255) NOT NULL COMMENT '파일 저장 위치',
+storage_type varchar(10) NOT NULL COMMENT 'LOCAL, S3, MINIO',
+reference_count int NOT NULL DEFAULT 0 COMMENT '참조 카운트',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE upload_sessions (
+session_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 파일을 업로드하는 권한 키',
+user_id bigint unsigned NOT NULL COMMENT 'FK: 파일을 업로드하는 유저',
+session_uuid varchar(32) UNIQUE NOT NULL COMMENT '세션 구분용 uuid',
+total_parts int NOT NULL COMMENT '업로드 될 파츠 개수',
+total_size bigint NOT NULL COMMENT '업로드 될 용량',
+upload_task_id varchar(255) COMMENT '오브젝트 스토리지의 작업 ID',
+local_path varchar(255) COMMENT '로컬 서버에 저장시 임시 폴더 경로',
+last_active_at datetime NOT NULL DEFAULT (now()) COMMENT '마지막으로 전송된 시각',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE upload_parts (
+part_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+session_id bigint unsigned NOT NULL COMMENT 'FK: 파츠의 소속',
+part_number int NOT NULL COMMENT '파츠의 순서',
+part_size int NOT NULL COMMENT '파츠의 용량',
+etag varchar(100) COMMENT '오브젝트 스토리지용 반환 증명서',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE share_links (
+share_link_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+user_id bigint unsigned NOT NULL COMMENT 'FK: 생성자',
+share_uuid varchar(32) UNIQUE NOT NULL COMMENT '공유용 uuid',
+link_type varchar(15) NOT NULL COMMENT 'INVITE, FILE, GROUP',
+expiration_date datetime NOT NULL COMMENT '공유 기간',
+password varchar(255) COMMENT '없는 경우 NULL',
+max_use_count int NOT NULL COMMENT '사용 가능 횟수',
+current_use_count int NOT NULL DEFAULT 0 COMMENT '사용 횟수',
+name varchar(50) NOT NULL COMMENT '공유링크 이름',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE share_directories (
+share_directory_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+share_link_id bigint unsigned NOT NULL COMMENT 'FK: 공유링크 id',
+parent_directory_id bigint unsigned COMMENT 'FK: 부모 디렉터리 (Root=NULL)',
+name varchar(100) NOT NULL COMMENT '이름',
+depth_level int NOT NULL DEFAULT 0 COMMENT '디렉터리 깊이',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE share_files (
+share_file_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+share_directory_id bigint unsigned NOT NULL COMMENT 'FK: 소속 디렉터리',
+virtual_file_id bigint unsigned NOT NULL COMMENT 'FK: 공유된 가상 파일',
+name varchar(100) NOT NULL COMMENT '이름',
+extension varchar(50) COMMENT '확장자',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE group_invites (
+share_link_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: share_links 1:1',
+group_id bigint unsigned NOT NULL COMMENT 'FK: 그룹id',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE groups (
+group_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 그룹의 파일 권한 키',
+owner_id bigint unsigned NOT NULL COMMENT 'FK: 그룹 소유자',
+name varchar(50) NOT NULL COMMENT '그룹 이름',
+max_member_count int NOT NULL COMMENT '가입할 수 인원수',
+current_member_count int NOT NULL DEFAULT 0 COMMENT '가입한 인원수',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE group_users (
+group_user_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+group_id bigint unsigned NOT NULL COMMENT 'FK: 소속 그룹',
+user_id bigint unsigned NOT NULL COMMENT 'FK: 유저',
+read_level int NOT NULL DEFAULT 0 COMMENT '읽을 수 있는 레벨',
+write_level int NOT NULL DEFAULT 0 COMMENT '수정할 수 있는 레벨',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE group_user_permissions (
+group_user_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: group_users 1:1',
+can_manage_user boolean NOT NULL DEFAULT false,
+can_manage_file boolean NOT NULL DEFAULT false,
+created_at datetime NOT NULL DEFAULT (now()),
+updated_at datetime NOT NULL DEFAULT (now()),
+created_by bigint unsigned NOT NULL,
+updated_by bigint unsigned NOT NULL
+);CREATE TABLE batch_job_queues (
+batch_job_queue_id bigint unsigned PRIMARY KEY AUTO_INCREMENT COMMENT '배치 작업 대기열id (대리키)',
+job_type varchar(50) NOT NULL COMMENT '작업 유형(통계/집계 등)',
+target_table varchar(64) NOT NULL COMMENT '대상 테이블명(FK 미적용)',
+target_id bigint unsigned NOT NULL COMMENT '대상 테이블의 작업 대상 id',
+status varchar(15) NOT NULL DEFAULT 'wait' COMMENT 'wait|in_progress|retry_wait|fail|success',
+job_data json NOT NULL COMMENT '작업 데이터(상세 파라미터)',
+attempt_count int NOT NULL DEFAULT 0 COMMENT '시도 횟수(현재까지 실행 시도된 횟수)',
+max_attempts int NOT NULL COMMENT '최대 실행 가능 횟수(재시도 허용 횟수 상한)',
+next_run_at datetime NOT NULL COMMENT '다음 실행 시각(이 시각 이후 실행 가능)',
+started_at datetime COMMENT '가장 최근에 작업이 실행된 시각',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성일',
+finished_at datetime COMMENT '완료일(미완료 시 NULL)',
+updated_at datetime NOT NULL DEFAULT (now()),
+created_by bigint unsigned NOT NULL COMMENT 'System or User',
+updated_by bigint unsigned NOT NULL COMMENT 'System'
+);CREATE INDEX idx_capacity_allocations_active ON capacity_allocations (receiver_permission_id, deleted_at, expiration_date, allocated_size);CREATE INDEX idx_virtual_directories_parent_name ON virtual_directories (file_permission_id, parent_directory_id, deleted_at, name, directory_id);CREATE INDEX idx_virtual_directories_parent_updated ON virtual_directories (file_permission_id, parent_directory_id, deleted_at, updated_at, directory_id);CREATE INDEX idx_virtual_files_directory_name ON virtual_files (directory_id, deleted_at, name, extension, virtual_file_id);CREATE INDEX idx_virtual_files_directory_updated ON virtual_files (directory_id, deleted_at, updated_at, extension, virtual_file_id);CREATE INDEX idx_real_files_hash_size ON real_files (file_hash, file_size);CREATE INDEX idx_upload_parts_session_order ON upload_parts (session_id, part_number);CREATE INDEX idx_share_directories_link_parent ON share_directories (share_link_id, deleted_at, parent_directory_id, name, share_directory_id);CREATE INDEX idx_share_files_directory_name ON share_files (share_directory_id, deleted_at, name, share_file_id);CREATE INDEX idx_batch_job_queues_polling ON batch_job_queues (status, next_run_at);ALTER TABLE users ADD FOREIGN KEY (inviter_id) REFERENCES users (user_id);ALTER TABLE users ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE user_permissions ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE file_permission_keys ADD FOREIGN KEY (parent_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE capacity_allocations ADD FOREIGN KEY (granter_allocation_id) REFERENCES capacity_allocations (allocation_id);ALTER TABLE capacity_allocations ADD FOREIGN KEY (receiver_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE capacity_allocations ADD FOREIGN KEY (giver_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE virtual_directories ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE virtual_directories ADD FOREIGN KEY (parent_directory_id) REFERENCES virtual_directories (directory_id);ALTER TABLE virtual_directory_stats ADD FOREIGN KEY (directory_id) REFERENCES virtual_directories (directory_id);ALTER TABLE virtual_files ADD FOREIGN KEY (directory_id) REFERENCES virtual_directories (directory_id);ALTER TABLE virtual_files ADD FOREIGN KEY (real_file_id) REFERENCES real_files (real_file_id);ALTER TABLE upload_sessions ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE upload_sessions ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE upload_parts ADD FOREIGN KEY (session_id) REFERENCES upload_sessions (session_id);ALTER TABLE share_links ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE share_directories ADD FOREIGN KEY (share_link_id) REFERENCES share_links (share_link_id);ALTER TABLE share_directories ADD FOREIGN KEY (parent_directory_id) REFERENCES share_directories (share_directory_id);ALTER TABLE share_files ADD FOREIGN KEY (share_directory_id) REFERENCES share_directories (share_directory_id);ALTER TABLE share_files ADD FOREIGN KEY (virtual_file_id) REFERENCES virtual_files (virtual_file_id);ALTER TABLE group_invites ADD FOREIGN KEY (share_link_id) REFERENCES share_links (share_link_id);ALTER TABLE group_invites ADD FOREIGN KEY (group_id) REFERENCES groups (group_id);ALTER TABLE groups ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE groups ADD FOREIGN KEY (owner_id) REFERENCES users (user_id);ALTER TABLE group_users ADD FOREIGN KEY (group_id) REFERENCES groups (group_id);ALTER TABLE group_users ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE group_user_permissions ADD FOREIGN KEY (group_user_id) REFERENCES group_users (group_user_id);START TRANSACTION;-- 1) 시스템 루트 파일 권한 키 생성 (owner_type=USER)
+INSERT INTO file_permission_keys (
+parent_permission_id, owner_type, total_capacity, available_capacity,
+deleted_at, created_at, updated_at, created_by, updated_by
+) VALUES (
+NULL, 'USER', 0, 0,
+NULL, NOW(), NOW(), 1, 1
+);SET @SYSTEM_FILE_PERMISSION_ID = LAST_INSERT_ID();-- 2) System 유저 생성 (user_id = 1 고정)
+-- 비밀번호는 해시로 넣어야 함. 아래는 자리표시자.
+INSERT INTO users (
+user_id, file_permission_id, inviter_id,
+login_id, password, email,
+deleted_at, created_at, updated_at,
+created_by, updated_by
+) VALUES (
+1, @SYSTEM_FILE_PERMISSION_ID, NULL,
+'system', '{bcrypt}lnWbVhIvEGtB44/E61lg7uvKCwZlzT7ffADxyVDRlTCOaO76y97Jy', 'system@local',
+NULL, NOW(), NOW(),
+1, 1
+);-- 3) System 유저 권한(1:1) 생성
+INSERT INTO user_permissions (
+user_id,
+can_invite_person, can_share_file, can_store_personal, can_create_group,
+created_at, updated_at, created_by, updated_by
+) VALUES (
+1,
+TRUE, TRUE, TRUE, TRUE,
+NOW(), NOW(), 1, 1
+);-- 4) (권장) 이후 생성되는 유저가 2부터 시작하도록 AUTO_INCREMENT 보정
+-- 이미 데이터가 있으면 더 큰 값으로 잡아야 하니, 보수적으로 MAX+1로 설정
+SET @NEXT_USER_ID = (SELECT GREATEST(IFNULL(MAX(user_id), 1) + 1, 2) FROM users);
+SET @sql = CONCAT('ALTER TABLE users AUTO_INCREMENT = ', @NEXT_USER_ID);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;COMMIT;]]></description><link>개인-파일-공유-서버(진행-중)/02.-데이터베이스-설계/05.-schema.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/02. 데이터베이스 설계/05. schema.md</guid><pubDate>Mon, 23 Feb 2026 11:59:58 GMT</pubDate></item><item><title><![CDATA[05. schema1]]></title><description><![CDATA[-- 1. 외래 키 체크 일시 해제 (참조 무결성으로 인한 오류 방지)
+SET FOREIGN_KEY_CHECKS = 0;-- 2. 배치 작업 및 그룹 관련 테이블 삭제
+DROP TABLE IF EXISTS batch_job_queues;
+DROP TABLE IF EXISTS group_user_permissions;
+DROP TABLE IF EXISTS group_users;
+DROP TABLE IF EXISTS group_invites;
+DROP TABLE IF EXISTS groups;-- 3. 공유 관련 테이블 삭제
+DROP TABLE IF EXISTS share_files;
+DROP TABLE IF EXISTS share_directories;
+DROP TABLE IF EXISTS share_links;-- 4. 업로드 세션 관련 테이블 삭제
+DROP TABLE IF EXISTS upload_parts;
+DROP TABLE IF EXISTS upload_sessions;-- 5. 파일 시스템 관련 테이블 삭제
+DROP TABLE IF EXISTS virtual_files;
+DROP TABLE IF EXISTS real_files;
+DROP TABLE IF EXISTS virtual_directory_stats;
+DROP TABLE IF EXISTS virtual_directories;-- 6. 권한 및 용량 관련 테이블 삭제
+DROP TABLE IF EXISTS capacity_allocations;
+DROP TABLE IF EXISTS file_permission_keys;-- 7. 유저 관련 테이블 삭제
+DROP TABLE IF EXISTS user_permissions;
+DROP TABLE IF EXISTS users;-- 8. 외래 키 체크 재설정
+SET FOREIGN_KEY_CHECKS = 1;CREATE TABLE users (
+user_id bigint unsigned PRIMARY KEY AUTO_INCREMENT COMMENT 'PK, 자동증가',
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 유저에게 할당된 루트 파일 권한',
+inviter_id bigint unsigned COMMENT 'FK: 나를 초대한 유저 (자기참조)',
+login_id varchar(255) UNIQUE NOT NULL COMMENT '로그인 아이디',
+password varchar(255) NOT NULL COMMENT '암호화된 비밀번호',
+email varchar(50) UNIQUE NOT NULL COMMENT '이메일',
+deleted_at datetime COMMENT '비활성화 시기 (Soft Delete)',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE user_permissions (
+user_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: users 테이블과 1:1',
+can_invite_person boolean NOT NULL DEFAULT false,
+can_share_file boolean NOT NULL DEFAULT false,
+can_store_personal boolean NOT NULL DEFAULT false,
+can_create_group boolean NOT NULL DEFAULT false,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE file_permission_keys (
+file_permission_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+parent_permission_id bigint unsigned COMMENT 'FK: 상위 권한 키 (용량 상속)',
+owner_type varchar(10) NOT NULL COMMENT 'USER, GROUP',
+total_capacity bigint NOT NULL DEFAULT 0 COMMENT '총 할당 용량(Byte)',
+available_capacity bigint NOT NULL DEFAULT 0 COMMENT '현재 사용 가능 용량(Byte)',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE capacity_allocations (
+allocation_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+granter_allocation_id bigint unsigned COMMENT 'FK: 용량을 준 상위 할당 ID',
+receiver_permission_id bigint unsigned NOT NULL COMMENT 'FK: 용량을 받는 키',
+giver_permission_id bigint unsigned COMMENT 'FK: 용량을 주는 키 (System=NULL)',
+allocated_size bigint NOT NULL COMMENT '할당되는 용량',
+expiration_date datetime COMMENT '만료일',
+allocation_type varchar(20) NOT NULL COMMENT 'EVENT, GRANT, SYSTEM',
+description varchar(100) COMMENT '세부 내용',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE virtual_directories (
+directory_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 소속 권한 키',
+parent_directory_id bigint unsigned COMMENT 'FK: 부모 디렉터리 (Root=NULL)',
+read_level int NOT NULL DEFAULT 0 COMMENT '읽기 가능 레벨',
+write_level int NOT NULL DEFAULT 0 COMMENT '쓰기 가능 레벨',
+name varchar(100) NOT NULL COMMENT '디렉터리 이름',
+depth_level int NOT NULL DEFAULT 0 COMMENT '디렉터리 깊이 (Root=0)',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE virtual_directory_stats (
+directory_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: 디렉터리와 1:1',
+total_size bigint NOT NULL DEFAULT 0 COMMENT '하위 포함 총 용량',
+directory_count int NOT NULL DEFAULT 0 COMMENT '하위 모든 디렉터리 개수',
+file_count int NOT NULL DEFAULT 0 COMMENT '하위 모든 파일 개수',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE virtual_files (
+virtual_file_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+directory_id bigint unsigned NOT NULL COMMENT 'FK: 소속 디렉터리',
+real_file_id bigint unsigned NOT NULL COMMENT 'FK: 실제 파일 메타데이터',
+read_level int NOT NULL DEFAULT 0 COMMENT '읽기 가능 레벨',
+write_level int NOT NULL DEFAULT 0 COMMENT '쓰기 가능 레벨',
+name varchar(100) NOT NULL COMMENT '파일 이름',
+extension varchar(50) COMMENT '파일 확장자',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE real_files (
+real_file_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+storage_uuid varchar(32) UNIQUE NOT NULL COMMENT '파일이 저장된 이름',
+file_hash char(64) NOT NULL COMMENT 'SHA-256 Hash for Deduplication',
+file_size bigint NOT NULL COMMENT '파일 크기',
+storage_path varchar(255) NOT NULL COMMENT '파일 저장 위치',
+storage_type varchar(10) NOT NULL COMMENT 'LOCAL, S3, MINIO',
+reference_count int NOT NULL DEFAULT 0 COMMENT '참조 카운트',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE upload_sessions (
+session_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 파일을 업로드하는 권한 키',
+user_id bigint unsigned NOT NULL COMMENT 'FK: 파일을 업로드하는 유저',
+session_uuid varchar(32) UNIQUE NOT NULL COMMENT '세션 구분용 uuid',
+total_parts int NOT NULL COMMENT '업로드 될 파츠 개수',
+total_size bigint NOT NULL COMMENT '업로드 될 용량',
+upload_task_id varchar(255) COMMENT '오브젝트 스토리지의 작업 ID',
+local_path varchar(255) COMMENT '로컬 서버에 저장시 임시 폴더 경로',
+last_active_at datetime NOT NULL DEFAULT (now()) COMMENT '마지막으로 전송된 시각',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE upload_parts (
+part_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+session_id bigint unsigned NOT NULL COMMENT 'FK: 파츠의 소속',
+part_number int NOT NULL COMMENT '파츠의 순서',
+part_size int NOT NULL COMMENT '파츠의 용량',
+etag varchar(100) COMMENT '오브젝트 스토리지용 반환 증명서',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE share_links (
+share_link_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+user_id bigint unsigned NOT NULL COMMENT 'FK: 생성자',
+share_uuid varchar(32) UNIQUE NOT NULL COMMENT '공유용 uuid',
+link_type varchar(15) NOT NULL COMMENT 'INVITE, FILE, GROUP',
+expiration_date datetime NOT NULL COMMENT '공유 기간',
+password varchar(255) COMMENT '없는 경우 NULL',
+max_use_count int NOT NULL COMMENT '사용 가능 횟수',
+current_use_count int NOT NULL DEFAULT 0 COMMENT '사용 횟수',
+name varchar(50) NOT NULL COMMENT '공유링크 이름',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE share_directories (
+share_directory_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+share_link_id bigint unsigned NOT NULL COMMENT 'FK: 공유링크 id',
+parent_directory_id bigint unsigned COMMENT 'FK: 부모 디렉터리 (Root=NULL)',
+name varchar(100) NOT NULL COMMENT '이름',
+depth_level int NOT NULL DEFAULT 0 COMMENT '디렉터리 깊이',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE share_files (
+share_file_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+share_directory_id bigint unsigned NOT NULL COMMENT 'FK: 소속 디렉터리',
+virtual_file_id bigint unsigned NOT NULL COMMENT 'FK: 공유된 가상 파일',
+name varchar(100) NOT NULL COMMENT '이름',
+extension varchar(50) COMMENT '확장자',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE group_invites (
+share_link_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: share_links 1:1',
+group_id bigint unsigned NOT NULL COMMENT 'FK: 그룹id',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE groups (
+group_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+file_permission_id bigint unsigned NOT NULL COMMENT 'FK: 그룹의 파일 권한 키',
+owner_id bigint unsigned NOT NULL COMMENT 'FK: 그룹 소유자',
+name varchar(50) NOT NULL COMMENT '그룹 이름',
+max_member_count int NOT NULL COMMENT '가입할 수 인원수',
+current_member_count int NOT NULL DEFAULT 0 COMMENT '가입한 인원수',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE group_users (
+group_user_id bigint unsigned PRIMARY KEY AUTO_INCREMENT,
+group_id bigint unsigned NOT NULL COMMENT 'FK: 소속 그룹',
+user_id bigint unsigned NOT NULL COMMENT 'FK: 유저',
+read_level int NOT NULL DEFAULT 0 COMMENT '읽을 수 있는 레벨',
+write_level int NOT NULL DEFAULT 0 COMMENT '수정할 수 있는 레벨',
+deleted_at datetime,
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성 시각',
+updated_at datetime NOT NULL DEFAULT (now()) COMMENT '수정 시각',
+created_by bigint unsigned NOT NULL COMMENT '생성자 ID (System=1)',
+updated_by bigint unsigned NOT NULL COMMENT '수정자 ID'
+);CREATE TABLE group_user_permissions (
+group_user_id bigint unsigned PRIMARY KEY COMMENT 'PK &amp; FK: group_users 1:1',
+can_manage_user boolean NOT NULL DEFAULT false,
+can_manage_file boolean NOT NULL DEFAULT false,
+created_at datetime NOT NULL DEFAULT (now()),
+updated_at datetime NOT NULL DEFAULT (now()),
+created_by bigint unsigned NOT NULL,
+updated_by bigint unsigned NOT NULL
+);CREATE TABLE batch_job_queues (
+batch_job_queue_id bigint unsigned PRIMARY KEY AUTO_INCREMENT COMMENT '배치 작업 대기열id (대리키)',
+job_type varchar(50) NOT NULL COMMENT '작업 유형(통계/집계 등)',
+target_table varchar(64) NOT NULL COMMENT '대상 테이블명(FK 미적용)',
+target_id bigint unsigned NOT NULL COMMENT '대상 테이블의 작업 대상 id',
+status varchar(15) NOT NULL DEFAULT 'wait' COMMENT 'wait|in_progress|retry_wait|fail|success',
+job_data json NOT NULL COMMENT '작업 데이터(상세 파라미터)',
+attempt_count int NOT NULL DEFAULT 0 COMMENT '시도 횟수(현재까지 실행 시도된 횟수)',
+max_attempts int NOT NULL COMMENT '최대 실행 가능 횟수(재시도 허용 횟수 상한)',
+next_run_at datetime NOT NULL COMMENT '다음 실행 시각(이 시각 이후 실행 가능)',
+started_at datetime COMMENT '가장 최근에 작업이 실행된 시각',
+created_at datetime NOT NULL DEFAULT (now()) COMMENT '생성일',
+finished_at datetime COMMENT '완료일(미완료 시 NULL)',
+updated_at datetime NOT NULL DEFAULT (now()),
+created_by bigint unsigned NOT NULL COMMENT 'System or User',
+updated_by bigint unsigned NOT NULL COMMENT 'System'
+);CREATE INDEX idx_capacity_allocations_active ON capacity_allocations (receiver_permission_id, deleted_at, expiration_date, allocated_size);CREATE INDEX idx_virtual_directories_parent_name ON virtual_directories (file_permission_id, parent_directory_id, deleted_at, name, directory_id);CREATE INDEX idx_virtual_directories_parent_updated ON virtual_directories (file_permission_id, parent_directory_id, deleted_at, updated_at, directory_id);CREATE INDEX idx_virtual_files_directory_name ON virtual_files (directory_id, deleted_at, name, extension, virtual_file_id);CREATE INDEX idx_virtual_files_directory_updated ON virtual_files (directory_id, deleted_at, updated_at, extension, virtual_file_id);CREATE INDEX idx_real_files_hash_size ON real_files (file_hash, file_size);CREATE INDEX idx_upload_parts_session_order ON upload_parts (session_id, part_number);CREATE INDEX idx_share_directories_link_parent ON share_directories (share_link_id, deleted_at, parent_directory_id, name, share_directory_id);CREATE INDEX idx_share_files_directory_name ON share_files (share_directory_id, deleted_at, name, share_file_id);CREATE INDEX idx_batch_job_queues_polling ON batch_job_queues (status, next_run_at);ALTER TABLE users ADD FOREIGN KEY (inviter_id) REFERENCES users (user_id);ALTER TABLE users ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE user_permissions ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE file_permission_keys ADD FOREIGN KEY (parent_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE capacity_allocations ADD FOREIGN KEY (granter_allocation_id) REFERENCES capacity_allocations (allocation_id);ALTER TABLE capacity_allocations ADD FOREIGN KEY (receiver_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE capacity_allocations ADD FOREIGN KEY (giver_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE virtual_directories ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE virtual_directories ADD FOREIGN KEY (parent_directory_id) REFERENCES virtual_directories (directory_id);ALTER TABLE virtual_directory_stats ADD FOREIGN KEY (directory_id) REFERENCES virtual_directories (directory_id);ALTER TABLE virtual_files ADD FOREIGN KEY (directory_id) REFERENCES virtual_directories (directory_id);ALTER TABLE virtual_files ADD FOREIGN KEY (real_file_id) REFERENCES real_files (real_file_id);ALTER TABLE upload_sessions ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE upload_sessions ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE upload_parts ADD FOREIGN KEY (session_id) REFERENCES upload_sessions (session_id);ALTER TABLE share_links ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE share_directories ADD FOREIGN KEY (share_link_id) REFERENCES share_links (share_link_id);ALTER TABLE share_directories ADD FOREIGN KEY (parent_directory_id) REFERENCES share_directories (share_directory_id);ALTER TABLE share_files ADD FOREIGN KEY (share_directory_id) REFERENCES share_directories (share_directory_id);ALTER TABLE share_files ADD FOREIGN KEY (virtual_file_id) REFERENCES virtual_files (virtual_file_id);ALTER TABLE group_invites ADD FOREIGN KEY (share_link_id) REFERENCES share_links (share_link_id);ALTER TABLE group_invites ADD FOREIGN KEY (group_id) REFERENCES groups (group_id);ALTER TABLE groups ADD FOREIGN KEY (file_permission_id) REFERENCES file_permission_keys (file_permission_id);ALTER TABLE groups ADD FOREIGN KEY (owner_id) REFERENCES users (user_id);ALTER TABLE group_users ADD FOREIGN KEY (group_id) REFERENCES groups (group_id);ALTER TABLE group_users ADD FOREIGN KEY (user_id) REFERENCES users (user_id);ALTER TABLE group_user_permissions ADD FOREIGN KEY (group_user_id) REFERENCES group_users (group_user_id);START TRANSACTION;-- 1) 시스템 루트 파일 권한 키 생성 (owner_type=USER)
+INSERT INTO file_permission_keys (
+parent_permission_id, owner_type, total_capacity, available_capacity,
+deleted_at, created_at, updated_at, created_by, updated_by
+) VALUES (
+NULL, 'USER', 0, 0,
+NULL, NOW(), NOW(), 1, 1
+);SET @SYSTEM_FILE_PERMISSION_ID = LAST_INSERT_ID();-- 2) System 유저 생성 (user_id = 1 고정)
+-- 비밀번호는 해시로 넣어야 함. 아래는 자리표시자.
+INSERT INTO users (
+user_id, file_permission_id, inviter_id,
+login_id, password, email,
+deleted_at, created_at, updated_at,
+created_by, updated_by
+) VALUES (
+1, @SYSTEM_FILE_PERMISSION_ID, NULL,
+'system', '{bcrypt}lnWbVhIvEGtB44/E61lg7uvKCwZlzT7ffADxyVDRlTCOaO76y97Jy', 'system@local',
+NULL, NOW(), NOW(),
+1, 1
+);-- 3) System 유저 권한(1:1) 생성
+INSERT INTO user_permissions (
+user_id,
+can_invite_person, can_share_file, can_store_personal, can_create_group,
+created_at, updated_at, created_by, updated_by
+) VALUES (
+1,
+TRUE, TRUE, TRUE, TRUE,
+NOW(), NOW(), 1, 1
+);-- 4) (권장) 이후 생성되는 유저가 2부터 시작하도록 AUTO_INCREMENT 보정
+-- 이미 데이터가 있으면 더 큰 값으로 잡아야 하니, 보수적으로 MAX+1로 설정
+SET @NEXT_USER_ID = (SELECT GREATEST(IFNULL(MAX(user_id), 1) + 1, 2) FROM users);
+SET @sql = CONCAT('ALTER TABLE users AUTO_INCREMENT = ', @NEXT_USER_ID);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;COMMIT;]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v003/05.-schema1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V003/05. schema1.md</guid><pubDate>Mon, 23 Feb 2026 11:59:58 GMT</pubDate></item><item><title><![CDATA[02. 물리 데이터 모델 기술서]]></title><description><![CDATA[아래 4개 컬럼은 모든 테이블에 기본적으로 포함됩니다.
+deleted_at (DATETIME, Nullable) 컬럼이 NULL이면 활성, 값이 있으면 삭제된 상태입니다. ]]></description><link>개인-파일-공유-서버(진행-중)/02.-데이터베이스-설계/02.-물리-데이터-모델-기술서.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/02. 데이터베이스 설계/02. 물리 데이터 모델 기술서.md</guid><pubDate>Wed, 11 Feb 2026 07:37:33 GMT</pubDate></item><item><title><![CDATA[02. 물리 데이터 모델 기술서1]]></title><description><![CDATA[아래 4개 컬럼은 모든 테이블에 기본적으로 포함됩니다.
+deleted_at (DATETIME, Nullable) 컬럼이 NULL이면 활성, 값이 있으면 삭제된 상태입니다. ]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v003/02.-물리-데이터-모델-기술서1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V003/02. 물리 데이터 모델 기술서1.md</guid><pubDate>Wed, 11 Feb 2026 07:37:33 GMT</pubDate></item><item><title><![CDATA[04. erd_diagram]]></title><description><![CDATA[ Link : https://dbdiagram.io/d/NAS-69734ca4bd82f5fce264c4fa// docs : <a rel="noopener nofollow" class="external-link is-unresolved" href="https://dbml.dbdiagram.io/docs/" target="_self">https://dbml.dbdiagram.io/docs/</a>// Project Personal_Cloud_Storage {// &nbsp; database_type: 'MySQL'// &nbsp; Note: '개인용 클라우드 스토리지(NAS) 서비스 데이터베이스 설계'// }// --------------------------------------------------------------------------// [공통 사항]// 모든 주요 테이블에는 아래 Audit 컬럼 4종이 포함됨// created_at, updated_at, created_by, updated_by// created_by/updated_by는 물리적 FK를 걸지 않음 (순환참조 방지 &amp; 성능 최적화)// --------------------------------------------------------------------------// --------------------------------------------------------------------------// 1. 유저 및 권한 (Users &amp; Permissions)// --------------------------------------------------------------------------Table users {&nbsp; user_id "bigint unsigned" [pk, increment, note: 'PK, 자동증가']&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 유저에게 할당된 루트 파일 권한']&nbsp; inviter_id "bigint unsigned" [null, note: 'FK: 나를 초대한 유저 (자기참조)']&nbsp; login_id varchar(255) [not null, unique, note: '로그인 아이디']&nbsp; password varchar(255) [not null, note: '암호화된 비밀번호']&nbsp; email varchar(50) [not null, unique, note: '이메일']&nbsp; deleted_at datetime [null, note: '비활성화 시기 (Soft Delete)']&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for UsersRef: users.user_id - users.inviter_idRef: file_permission_keys.file_permission_id - users.file_permission_idTable user_permissions {&nbsp; user_id "bigint unsigned" [pk, note: 'PK &amp; FK: users 테이블과 1:1']&nbsp; can_invite_person boolean [not null, default: false]&nbsp; can_share_file boolean [not null, default: false]&nbsp; can_store_personal boolean [not null, default: false]&nbsp; can_create_group boolean [not null, default: false]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for User PermissionsRef: users.user_id - user_permissions.user_id// --------------------------------------------------------------------------// 2. 파일 권한 및 용량 (File Permissions &amp; Capacity)// --------------------------------------------------------------------------Table file_permission_keys {&nbsp; file_permission_id "bigint unsigned" [pk, increment]&nbsp; parent_permission_id "bigint unsigned" [null, note: 'FK: 상위 권한 키 (용량 상속)']&nbsp; owner_type varchar(10) [not null, note: 'USER, GROUP']&nbsp; total_capacity bigint [not null, default: 0, note: '총 할당 용량(Byte)']&nbsp; available_capacity bigint [not null, default: 0, note: '현재 사용 가능 용량(Byte)']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for File Permission KeysRef: &nbsp;file_permission_keys.file_permission_id - file_permission_keys.parent_permission_idTable capacity_allocations {&nbsp; allocation_id "bigint unsigned" [pk, increment]&nbsp; granter_allocation_id "bigint unsigned" [null, note: 'FK: 용량을 준 상위 할당 ID']&nbsp; receiver_permission_id "bigint unsigned" [not null, note: 'FK: 용량을 받는 키']&nbsp; giver_permission_id "bigint unsigned" [null, note: 'FK: 용량을 주는 키 (System=NULL)']&nbsp; allocated_size bigint [not null, note: '할당되는 용량']&nbsp; expiration_date datetime [null, note: '만료일']&nbsp; allocation_type varchar(20) [not null, note: 'EVENT, GRANT, SYSTEM']&nbsp; description varchar(100) [null, note: '세부 내용']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (receiver_permission_id, deleted_at, expiration_date, allocated_size) [name: 'idx_capacity_allocations_active', note: '유효 용량 계산']&nbsp; }}// Refs for Capacity AllocationsRef: capacity_allocations.allocation_id - capacity_allocations.granter_allocation_idRef: file_permission_keys.file_permission_id &lt; capacity_allocations.receiver_permission_idRef: file_permission_keys.file_permission_id &lt; capacity_allocations.giver_permission_id// --------------------------------------------------------------------------// 3. 파일 시스템 (Virtual File System)// --------------------------------------------------------------------------Table virtual_directories {&nbsp; directory_id "bigint unsigned" [pk, increment]&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 소속 권한 키']&nbsp; parent_directory_id "bigint unsigned" [null, note: 'FK: 부모 디렉터리 (Root=NULL)']&nbsp; read_level int [not null, default: 0, note: '읽기 가능 레벨']&nbsp; write_level int [not null, default: 0, note: '쓰기 가능 레벨']&nbsp; name varchar(100) [not null, note: '디렉터리 이름']&nbsp; depth_level int [not null, default: 0, note: '디렉터리 깊이 (Root=0)']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (file_permission_id, parent_directory_id, deleted_at, name, directory_id) [name: 'idx_virtual_directories_parent_name', note: '부모 폴더 내 이름순 조회']&nbsp; &nbsp; (file_permission_id, parent_directory_id, deleted_at, updated_at, directory_id) [name: 'idx_virtual_directories_parent_updated', note: '부모 폴더 내 최신순 조회']&nbsp; }}// Refs for Virtual DirectoriesRef: file_permission_keys.file_permission_id &lt; virtual_directories.file_permission_idRef: virtual_directories.directory_id &lt; virtual_directories.parent_directory_idTable virtual_directory_stats {&nbsp; directory_id "bigint unsigned" [pk, note: 'PK &amp; FK: 디렉터리와 1:1']&nbsp; total_size bigint [not null, default: 0, note: '하위 포함 총 용량']&nbsp; directory_count int [not null, default: 0, note: '하위 모든 디렉터리 개수']&nbsp; file_count int [not null, default: 0, note: '하위 모든 파일 개수']&nbsp; // Audit Columns (통계 갱신 추적용)&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Virtual Directory StatsRef: virtual_directories.directory_id - virtual_directory_stats.directory_idTable virtual_files {&nbsp; virtual_file_id "bigint unsigned" [pk, increment]&nbsp; directory_id "bigint unsigned" [not null, note: 'FK: 소속 디렉터리']&nbsp; real_file_id "bigint unsigned" [not null, note: 'FK: 실제 파일 메타데이터']&nbsp; read_level int [not null, default: 0, note: '읽기 가능 레벨']&nbsp; write_level int [not null, default: 0, note: '쓰기 가능 레벨']&nbsp; name varchar(100) [not null, note: '파일 이름']&nbsp; extension varchar(50) [null, note: '파일 확장자']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (directory_id, deleted_at, name, extension, virtual_file_id) [name: 'idx_virtual_files_directory_name', note: '폴더 내 파일 이름순 조회']&nbsp; &nbsp; (directory_id, deleted_at, updated_at, extension, virtual_file_id) [name: 'idx_virtual_files_directory_updated', note: '폴더 내 파일 최신순 조회']&nbsp; }}// Refs for Virtual FilesRef: virtual_directories.directory_id &lt; virtual_files.directory_idRef: virtual_files.real_file_id &gt; real_files.real_file_idTable real_files {&nbsp; real_file_id "bigint unsigned" [pk, increment]&nbsp; storage_uuid varchar(32) [not null, unique, note: '파일이 저장된 이름']&nbsp; file_hash char(64) [not null, note: 'SHA-256 Hash for Deduplication']&nbsp; file_size bigint [not null, note: '파일 크기']&nbsp; storage_path varchar(255) [not null, note: '파일 저장 위치']&nbsp; storage_type varchar(10) [not null, note: 'LOCAL, S3, MINIO']&nbsp; reference_count int [not null, default: 0, note: '참조 카운트']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (file_hash, file_size) [name: 'idx_real_files_hash_size', note: '물리 파일 중복 체크']&nbsp; }}// --------------------------------------------------------------------------// 4. 업로드 세션 (Uploads)// --------------------------------------------------------------------------Table upload_sessions {&nbsp; session_id "bigint unsigned" [pk, increment]&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 파일을 업로드하는 권한 키']&nbsp; user_id "bigint unsigned" [not null, note: 'FK: 파일을 업로드하는 유저']&nbsp; session_uuid varchar(32) [not null, unique, note: '세션 구분용 uuid']&nbsp; total_parts int [not null, note: '업로드 될 파츠 개수']&nbsp; total_size bigint [not null, note: '업로드 될 용량']&nbsp; upload_task_id varchar(255) [null, note: '오브젝트 스토리지의 작업 ID']&nbsp; local_path varchar(255) [null, note: '로컬 서버에 저장시 임시 폴더 경로']&nbsp; last_active_at datetime [not null, default: now(), note: '마지막으로 전송된 시각']&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Upload SessionsRef: file_permission_keys.file_permission_id &lt; upload_sessions.file_permission_idRef: users.user_id &lt; upload_sessions.user_idTable upload_parts {&nbsp; part_id "bigint unsigned" [pk, increment]&nbsp; session_id "bigint unsigned" [not null, note: 'FK: 파츠의 소속']&nbsp; part_number int [not null, note: '파츠의 순서']&nbsp; part_size int [not null, note: '파츠의 용량']&nbsp; etag varchar(100) [null, note: '오브젝트 스토리지용 반환 증명서']&nbsp; // Audit Columns (파츠는 빈번하므로 필요에 따라 제외 가능하나 통일성 위해 추가)&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (session_id, part_number) [name: 'idx_upload_parts_session_order', note: '업로드 파츠 순서 정렬']&nbsp; }}// Refs for Upload PartsRef: upload_sessions.session_id &lt; upload_parts.session_id// --------------------------------------------------------------------------// 5. 공유 (Sharing)// --------------------------------------------------------------------------Table share_links {&nbsp; share_link_id "bigint unsigned" [pk, increment]&nbsp; user_id "bigint unsigned" [not null, note: 'FK: 생성자']&nbsp; share_uuid varchar(32) [not null, unique, note: '공유용 uuid']&nbsp; link_type varchar(15) [not null, note: 'INVITE, FILE, GROUP']&nbsp; expiration_date datetime [not null, note: '공유 기간']&nbsp; password varchar(255) [null, note: '없는 경우 NULL']&nbsp; max_use_count int [not null, note: '사용 가능 횟수']&nbsp; current_use_count int [not null, default: 0, note: '사용 횟수']&nbsp; name varchar(50) [not null, note: '공유링크 이름']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Share LinksRef: users.user_id &lt; share_links.user_idTable share_directories {&nbsp; share_directory_id "bigint unsigned" [pk, increment]&nbsp; share_link_id "bigint unsigned" [not null, note: 'FK: 공유링크 id']&nbsp; parent_directory_id "bigint unsigned" [null, note: 'FK: 부모 디렉터리 (Root=NULL)']&nbsp; name varchar(100) [not null, note: '이름']&nbsp; depth_level int [not null, default: 0, note: '디렉터리 깊이']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (share_link_id, deleted_at, parent_directory_id, name, share_directory_id) [name: 'idx_share_directories_link_parent', note: '공유 디렉터리 탐색']&nbsp; }}// Refs for Share DirectoriesRef: share_links.share_link_id &lt; share_directories.share_link_idRef: share_directories.share_directory_id &lt; share_directories.parent_directory_idTable share_files {&nbsp; share_file_id "bigint unsigned" [pk, increment]&nbsp; share_directory_id "bigint unsigned" [not null, note: 'FK: 소속 디렉터리']&nbsp; virtual_file_id "bigint unsigned" [not null, note: 'FK: 공유된 가상 파일']&nbsp; name varchar(100) [not null, note: '이름']&nbsp; extension varchar(50) [null, note: '확장자']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (share_directory_id, deleted_at, name, share_file_id) [name: 'idx_share_files_directory_name', note: '공유 파일 이름순 조회']&nbsp; }}// Refs for Share FilesRef: share_directories.share_directory_id &lt; share_files.share_directory_idRef: virtual_files.virtual_file_id &lt; share_files.virtual_file_id// --------------------------------------------------------------------------// 6. 그룹 (Groups)// --------------------------------------------------------------------------Table group_invites {&nbsp; share_link_id "bigint unsigned" [pk, note: 'PK &amp; FK: share_links 1:1']&nbsp; group_id "bigint unsigned" [not null, note: 'FK: 그룹id']&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Group InvitesRef: share_links.share_link_id - group_invites.share_link_idRef: groups.group_id &lt; group_invites.group_idTable groups {&nbsp; group_id "bigint unsigned" [pk, increment]&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 그룹의 파일 권한 키']&nbsp; owner_id "bigint unsigned" [not null, note: 'FK: 그룹 소유자']&nbsp; name varchar(50) [not null, note: '그룹 이름']&nbsp; max_member_count int [not null, note: '가입할 수 인원수']&nbsp; current_member_count int [not null, default: 0, note: '가입한 인원수']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for GroupsRef: file_permission_keys.file_permission_id - groups.file_permission_idRef: users.user_id &lt; groups.owner_idTable group_users {&nbsp; group_user_id "bigint unsigned" [pk, increment]&nbsp; group_id "bigint unsigned" [not null, note: 'FK: 소속 그룹']&nbsp; user_id "bigint unsigned" [not null, note: 'FK: 유저']&nbsp; read_level int [not null, default: 0, note: '읽을 수 있는 레벨']&nbsp; write_level int [not null, default: 0, note: '수정할 수 있는 레벨']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Group UsersRef: groups.group_id &lt; group_users.group_idRef: users.user_id &lt; group_users.user_idTable group_user_permissions {&nbsp; group_user_id "bigint unsigned" [pk, note: 'PK &amp; FK: group_users 1:1']&nbsp; can_manage_user boolean [not null, default: false]&nbsp; can_manage_file boolean [not null, default: false]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now()]&nbsp; updated_at datetime [not null, default: now()]&nbsp; created_by "bigint unsigned" [not null]&nbsp; updated_by "bigint unsigned" [not null]}// Refs for Group User PermissionsRef: group_users.group_user_id - group_user_permissions.group_user_id// --------------------------------------------------------------------------// 7. 배치 작업 (Batch Jobs)// --------------------------------------------------------------------------Table batch_job_queues {&nbsp; batch_job_queue_id "bigint unsigned" [pk, increment, note: "배치 작업 대기열id (대리키)"]&nbsp; job_type varchar(50) [not null, note: "작업 유형(통계/집계 등)"]&nbsp; target_table varchar(64) [not null, note: "대상 테이블명(FK 미적용)"]&nbsp; target_id "bigint unsigned" [not null, note: "대상 테이블의 작업 대상 id"]&nbsp; status varchar(15) [not null, default: 'wait', note: "wait|in_progress|retry_wait|fail|success"]&nbsp; job_data json [not null, note: "작업 데이터(상세 파라미터)"]&nbsp; attempt_count int [not null, default: 0, note: "시도 횟수(현재까지 실행 시도된 횟수)"]&nbsp; max_attempts int [not null, note: "최대 실행 가능 횟수(재시도 허용 횟수 상한)"]&nbsp; next_run_at datetime [not null, note: "다음 실행 시각(이 시각 이후 실행 가능)"]&nbsp; started_at datetime [null, note: "가장 최근에 작업이 실행된 시각"]&nbsp; created_at datetime [not null, default: now(), note: "생성일"]&nbsp; finished_at datetime [null, note: "완료일(미완료 시 NULL)"]&nbsp; // 배치 작업은 updated_by(유저) 개념이 모호하므로&nbsp; // 수정일(updated_at)만 추가하거나, 제외해도 되지만 통일성을 위해 추가함&nbsp; updated_at datetime [not null, default: now()]&nbsp; created_by "bigint unsigned" [not null, note: 'System or User']&nbsp; updated_by "bigint unsigned" [not null, note: 'System']&nbsp; indexes {&nbsp; &nbsp; (status, next_run_at) [name: "idx_batch_job_queues_polling", note: "대기 작업 폴링(실행 가능 작업 조회)"]&nbsp; }}]]></description><link>개인-파일-공유-서버(진행-중)/02.-데이터베이스-설계/04.-erd_diagram.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/02. 데이터베이스 설계/04. erd_diagram.md</guid><pubDate>Thu, 05 Feb 2026 10:10:05 GMT</pubDate></item><item><title><![CDATA[04. erd_diagram1]]></title><description><![CDATA[ Link : https://dbdiagram.io/d/NAS-69734ca4bd82f5fce264c4fa// docs : <a rel="noopener nofollow" class="external-link is-unresolved" href="https://dbml.dbdiagram.io/docs/" target="_self">https://dbml.dbdiagram.io/docs/</a>// Project Personal_Cloud_Storage {// &nbsp; database_type: 'MySQL'// &nbsp; Note: '개인용 클라우드 스토리지(NAS) 서비스 데이터베이스 설계'// }// --------------------------------------------------------------------------// [공통 사항]// 모든 주요 테이블에는 아래 Audit 컬럼 4종이 포함됨// created_at, updated_at, created_by, updated_by// created_by/updated_by는 물리적 FK를 걸지 않음 (순환참조 방지 &amp; 성능 최적화)// --------------------------------------------------------------------------// --------------------------------------------------------------------------// 1. 유저 및 권한 (Users &amp; Permissions)// --------------------------------------------------------------------------Table users {&nbsp; user_id "bigint unsigned" [pk, increment, note: 'PK, 자동증가']&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 유저에게 할당된 루트 파일 권한']&nbsp; inviter_id "bigint unsigned" [null, note: 'FK: 나를 초대한 유저 (자기참조)']&nbsp; login_id varchar(255) [not null, unique, note: '로그인 아이디']&nbsp; password varchar(255) [not null, note: '암호화된 비밀번호']&nbsp; email varchar(50) [not null, unique, note: '이메일']&nbsp; deleted_at datetime [null, note: '비활성화 시기 (Soft Delete)']&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for UsersRef: users.user_id - users.inviter_idRef: file_permission_keys.file_permission_id - users.file_permission_idTable user_permissions {&nbsp; user_id "bigint unsigned" [pk, note: 'PK &amp; FK: users 테이블과 1:1']&nbsp; can_invite_person boolean [not null, default: false]&nbsp; can_share_file boolean [not null, default: false]&nbsp; can_store_personal boolean [not null, default: false]&nbsp; can_create_group boolean [not null, default: false]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for User PermissionsRef: users.user_id - user_permissions.user_id// --------------------------------------------------------------------------// 2. 파일 권한 및 용량 (File Permissions &amp; Capacity)// --------------------------------------------------------------------------Table file_permission_keys {&nbsp; file_permission_id "bigint unsigned" [pk, increment]&nbsp; parent_permission_id "bigint unsigned" [null, note: 'FK: 상위 권한 키 (용량 상속)']&nbsp; owner_type varchar(10) [not null, note: 'USER, GROUP']&nbsp; total_capacity bigint [not null, default: 0, note: '총 할당 용량(Byte)']&nbsp; available_capacity bigint [not null, default: 0, note: '현재 사용 가능 용량(Byte)']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for File Permission KeysRef: &nbsp;file_permission_keys.file_permission_id - file_permission_keys.parent_permission_idTable capacity_allocations {&nbsp; allocation_id "bigint unsigned" [pk, increment]&nbsp; granter_allocation_id "bigint unsigned" [null, note: 'FK: 용량을 준 상위 할당 ID']&nbsp; receiver_permission_id "bigint unsigned" [not null, note: 'FK: 용량을 받는 키']&nbsp; giver_permission_id "bigint unsigned" [null, note: 'FK: 용량을 주는 키 (System=NULL)']&nbsp; allocated_size bigint [not null, note: '할당되는 용량']&nbsp; expiration_date datetime [null, note: '만료일']&nbsp; allocation_type varchar(20) [not null, note: 'EVENT, GRANT, SYSTEM']&nbsp; description varchar(100) [null, note: '세부 내용']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (receiver_permission_id, deleted_at, expiration_date, allocated_size) [name: 'idx_capacity_allocations_active', note: '유효 용량 계산']&nbsp; }}// Refs for Capacity AllocationsRef: capacity_allocations.allocation_id - capacity_allocations.granter_allocation_idRef: file_permission_keys.file_permission_id &lt; capacity_allocations.receiver_permission_idRef: file_permission_keys.file_permission_id &lt; capacity_allocations.giver_permission_id// --------------------------------------------------------------------------// 3. 파일 시스템 (Virtual File System)// --------------------------------------------------------------------------Table virtual_directories {&nbsp; directory_id "bigint unsigned" [pk, increment]&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 소속 권한 키']&nbsp; parent_directory_id "bigint unsigned" [null, note: 'FK: 부모 디렉터리 (Root=NULL)']&nbsp; read_level int [not null, default: 0, note: '읽기 가능 레벨']&nbsp; write_level int [not null, default: 0, note: '쓰기 가능 레벨']&nbsp; name varchar(100) [not null, note: '디렉터리 이름']&nbsp; depth_level int [not null, default: 0, note: '디렉터리 깊이 (Root=0)']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (file_permission_id, parent_directory_id, deleted_at, name, directory_id) [name: 'idx_virtual_directories_parent_name', note: '부모 폴더 내 이름순 조회']&nbsp; &nbsp; (file_permission_id, parent_directory_id, deleted_at, updated_at, directory_id) [name: 'idx_virtual_directories_parent_updated', note: '부모 폴더 내 최신순 조회']&nbsp; }}// Refs for Virtual DirectoriesRef: file_permission_keys.file_permission_id &lt; virtual_directories.file_permission_idRef: virtual_directories.directory_id &lt; virtual_directories.parent_directory_idTable virtual_directory_stats {&nbsp; directory_id "bigint unsigned" [pk, note: 'PK &amp; FK: 디렉터리와 1:1']&nbsp; total_size bigint [not null, default: 0, note: '하위 포함 총 용량']&nbsp; directory_count int [not null, default: 0, note: '하위 모든 디렉터리 개수']&nbsp; file_count int [not null, default: 0, note: '하위 모든 파일 개수']&nbsp; // Audit Columns (통계 갱신 추적용)&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Virtual Directory StatsRef: virtual_directories.directory_id - virtual_directory_stats.directory_idTable virtual_files {&nbsp; virtual_file_id "bigint unsigned" [pk, increment]&nbsp; directory_id "bigint unsigned" [not null, note: 'FK: 소속 디렉터리']&nbsp; real_file_id "bigint unsigned" [not null, note: 'FK: 실제 파일 메타데이터']&nbsp; read_level int [not null, default: 0, note: '읽기 가능 레벨']&nbsp; write_level int [not null, default: 0, note: '쓰기 가능 레벨']&nbsp; name varchar(100) [not null, note: '파일 이름']&nbsp; extension varchar(50) [null, note: '파일 확장자']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (directory_id, deleted_at, name, extension, virtual_file_id) [name: 'idx_virtual_files_directory_name', note: '폴더 내 파일 이름순 조회']&nbsp; &nbsp; (directory_id, deleted_at, updated_at, extension, virtual_file_id) [name: 'idx_virtual_files_directory_updated', note: '폴더 내 파일 최신순 조회']&nbsp; }}// Refs for Virtual FilesRef: virtual_directories.directory_id &lt; virtual_files.directory_idRef: virtual_files.real_file_id &gt; real_files.real_file_idTable real_files {&nbsp; real_file_id "bigint unsigned" [pk, increment]&nbsp; storage_uuid varchar(32) [not null, unique, note: '파일이 저장된 이름']&nbsp; file_hash char(64) [not null, note: 'SHA-256 Hash for Deduplication']&nbsp; file_size bigint [not null, note: '파일 크기']&nbsp; storage_path varchar(255) [not null, note: '파일 저장 위치']&nbsp; storage_type varchar(10) [not null, note: 'LOCAL, S3, MINIO']&nbsp; reference_count int [not null, default: 0, note: '참조 카운트']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (file_hash, file_size) [name: 'idx_real_files_hash_size', note: '물리 파일 중복 체크']&nbsp; }}// --------------------------------------------------------------------------// 4. 업로드 세션 (Uploads)// --------------------------------------------------------------------------Table upload_sessions {&nbsp; session_id "bigint unsigned" [pk, increment]&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 파일을 업로드하는 권한 키']&nbsp; user_id "bigint unsigned" [not null, note: 'FK: 파일을 업로드하는 유저']&nbsp; session_uuid varchar(32) [not null, unique, note: '세션 구분용 uuid']&nbsp; total_parts int [not null, note: '업로드 될 파츠 개수']&nbsp; total_size bigint [not null, note: '업로드 될 용량']&nbsp; upload_task_id varchar(255) [null, note: '오브젝트 스토리지의 작업 ID']&nbsp; local_path varchar(255) [null, note: '로컬 서버에 저장시 임시 폴더 경로']&nbsp; last_active_at datetime [not null, default: now(), note: '마지막으로 전송된 시각']&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Upload SessionsRef: file_permission_keys.file_permission_id &lt; upload_sessions.file_permission_idRef: users.user_id &lt; upload_sessions.user_idTable upload_parts {&nbsp; part_id "bigint unsigned" [pk, increment]&nbsp; session_id "bigint unsigned" [not null, note: 'FK: 파츠의 소속']&nbsp; part_number int [not null, note: '파츠의 순서']&nbsp; part_size int [not null, note: '파츠의 용량']&nbsp; etag varchar(100) [null, note: '오브젝트 스토리지용 반환 증명서']&nbsp; // Audit Columns (파츠는 빈번하므로 필요에 따라 제외 가능하나 통일성 위해 추가)&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (session_id, part_number) [name: 'idx_upload_parts_session_order', note: '업로드 파츠 순서 정렬']&nbsp; }}// Refs for Upload PartsRef: upload_sessions.session_id &lt; upload_parts.session_id// --------------------------------------------------------------------------// 5. 공유 (Sharing)// --------------------------------------------------------------------------Table share_links {&nbsp; share_link_id "bigint unsigned" [pk, increment]&nbsp; user_id "bigint unsigned" [not null, note: 'FK: 생성자']&nbsp; share_uuid varchar(32) [not null, unique, note: '공유용 uuid']&nbsp; link_type varchar(15) [not null, note: 'INVITE, FILE, GROUP']&nbsp; expiration_date datetime [not null, note: '공유 기간']&nbsp; password varchar(255) [null, note: '없는 경우 NULL']&nbsp; max_use_count int [not null, note: '사용 가능 횟수']&nbsp; current_use_count int [not null, default: 0, note: '사용 횟수']&nbsp; name varchar(50) [not null, note: '공유링크 이름']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Share LinksRef: users.user_id &lt; share_links.user_idTable share_directories {&nbsp; share_directory_id "bigint unsigned" [pk, increment]&nbsp; share_link_id "bigint unsigned" [not null, note: 'FK: 공유링크 id']&nbsp; parent_directory_id "bigint unsigned" [null, note: 'FK: 부모 디렉터리 (Root=NULL)']&nbsp; name varchar(100) [not null, note: '이름']&nbsp; depth_level int [not null, default: 0, note: '디렉터리 깊이']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (share_link_id, deleted_at, parent_directory_id, name, share_directory_id) [name: 'idx_share_directories_link_parent', note: '공유 디렉터리 탐색']&nbsp; }}// Refs for Share DirectoriesRef: share_links.share_link_id &lt; share_directories.share_link_idRef: share_directories.share_directory_id &lt; share_directories.parent_directory_idTable share_files {&nbsp; share_file_id "bigint unsigned" [pk, increment]&nbsp; share_directory_id "bigint unsigned" [not null, note: 'FK: 소속 디렉터리']&nbsp; virtual_file_id "bigint unsigned" [not null, note: 'FK: 공유된 가상 파일']&nbsp; name varchar(100) [not null, note: '이름']&nbsp; extension varchar(50) [null, note: '확장자']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']&nbsp; indexes {&nbsp; &nbsp; (share_directory_id, deleted_at, name, share_file_id) [name: 'idx_share_files_directory_name', note: '공유 파일 이름순 조회']&nbsp; }}// Refs for Share FilesRef: share_directories.share_directory_id &lt; share_files.share_directory_idRef: virtual_files.virtual_file_id &lt; share_files.virtual_file_id// --------------------------------------------------------------------------// 6. 그룹 (Groups)// --------------------------------------------------------------------------Table group_invites {&nbsp; share_link_id "bigint unsigned" [pk, note: 'PK &amp; FK: share_links 1:1']&nbsp; group_id "bigint unsigned" [not null, note: 'FK: 그룹id']&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Group InvitesRef: share_links.share_link_id - group_invites.share_link_idRef: groups.group_id &lt; group_invites.group_idTable groups {&nbsp; group_id "bigint unsigned" [pk, increment]&nbsp; file_permission_id "bigint unsigned" [not null, note: 'FK: 그룹의 파일 권한 키']&nbsp; owner_id "bigint unsigned" [not null, note: 'FK: 그룹 소유자']&nbsp; name varchar(50) [not null, note: '그룹 이름']&nbsp; max_member_count int [not null, note: '가입할 수 인원수']&nbsp; current_member_count int [not null, default: 0, note: '가입한 인원수']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for GroupsRef: file_permission_keys.file_permission_id - groups.file_permission_idRef: users.user_id &lt; groups.owner_idTable group_users {&nbsp; group_user_id "bigint unsigned" [pk, increment]&nbsp; group_id "bigint unsigned" [not null, note: 'FK: 소속 그룹']&nbsp; user_id "bigint unsigned" [not null, note: 'FK: 유저']&nbsp; read_level int [not null, default: 0, note: '읽을 수 있는 레벨']&nbsp; write_level int [not null, default: 0, note: '수정할 수 있는 레벨']&nbsp; deleted_at datetime [null]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now(), note: '생성 시각']&nbsp; updated_at datetime [not null, default: now(), note: '수정 시각']&nbsp; created_by "bigint unsigned" [not null, note: '생성자 ID (System=1)']&nbsp; updated_by "bigint unsigned" [not null, note: '수정자 ID']}// Refs for Group UsersRef: groups.group_id &lt; group_users.group_idRef: users.user_id &lt; group_users.user_idTable group_user_permissions {&nbsp; group_user_id "bigint unsigned" [pk, note: 'PK &amp; FK: group_users 1:1']&nbsp; can_manage_user boolean [not null, default: false]&nbsp; can_manage_file boolean [not null, default: false]&nbsp; // Audit Columns&nbsp; created_at datetime [not null, default: now()]&nbsp; updated_at datetime [not null, default: now()]&nbsp; created_by "bigint unsigned" [not null]&nbsp; updated_by "bigint unsigned" [not null]}// Refs for Group User PermissionsRef: group_users.group_user_id - group_user_permissions.group_user_id// --------------------------------------------------------------------------// 7. 배치 작업 (Batch Jobs)// --------------------------------------------------------------------------Table batch_job_queues {&nbsp; batch_job_queue_id "bigint unsigned" [pk, increment, note: "배치 작업 대기열id (대리키)"]&nbsp; job_type varchar(50) [not null, note: "작업 유형(통계/집계 등)"]&nbsp; target_table varchar(64) [not null, note: "대상 테이블명(FK 미적용)"]&nbsp; target_id "bigint unsigned" [not null, note: "대상 테이블의 작업 대상 id"]&nbsp; status varchar(15) [not null, default: 'wait', note: "wait|in_progress|retry_wait|fail|success"]&nbsp; job_data json [not null, note: "작업 데이터(상세 파라미터)"]&nbsp; attempt_count int [not null, default: 0, note: "시도 횟수(현재까지 실행 시도된 횟수)"]&nbsp; max_attempts int [not null, note: "최대 실행 가능 횟수(재시도 허용 횟수 상한)"]&nbsp; next_run_at datetime [not null, note: "다음 실행 시각(이 시각 이후 실행 가능)"]&nbsp; started_at datetime [null, note: "가장 최근에 작업이 실행된 시각"]&nbsp; created_at datetime [not null, default: now(), note: "생성일"]&nbsp; finished_at datetime [null, note: "완료일(미완료 시 NULL)"]&nbsp; // 배치 작업은 updated_by(유저) 개념이 모호하므로&nbsp; // 수정일(updated_at)만 추가하거나, 제외해도 되지만 통일성을 위해 추가함&nbsp; updated_at datetime [not null, default: now()]&nbsp; created_by "bigint unsigned" [not null, note: 'System or User']&nbsp; updated_by "bigint unsigned" [not null, note: 'System']&nbsp; indexes {&nbsp; &nbsp; (status, next_run_at) [name: "idx_batch_job_queues_polling", note: "대기 작업 폴링(실행 가능 작업 조회)"]&nbsp; }}]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v003/04.-erd_diagram1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V003/04. erd_diagram1.md</guid><pubDate>Thu, 05 Feb 2026 10:10:05 GMT</pubDate></item><item><title><![CDATA[01. ERD]]></title><description><![CDATA[<img alt="Pasted image 20260122174704.png" src="media/pasted-image-20260122174704.png" target="_self">
+배치 작업 erd 다시 그려야함함
+컬럼 정의 생성일 : DATETIME, NOT NULL, 생성된 시간.
+수정일 : DATETIME, NOT NULL, 수정된 시간.
+생성자 : BIGINT, NOT NULL, 생성한 유저id (유저 테이블).
+수정자 : BIGINT, NOT NULL, 수정한 유저id (유저 테이블). 설계 노트 생성일과 수정일은 데이터베이스의 기능을 사용해 자동으로 반영되도록 한다.
+생성자와 수정자는 애플리케이션 설정으로 자동화한다.
+생성자와 수정자에 FK가 걸려있으므로 system user를 생성해야 한다. 기본 키 : 유저id (대리 키)
+외래 키 : 파일 권한 키id (파일 권한 키 테이블)
+초대한 유저 (유저 테이블) 컬럼 정의 유저id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값.
+초대한 유저 : BIGINT, FK
+해당 유저를 초대한 사람. 관리자(root)에 의해 초대된 경우 NULL 값을 가짐.
+로그인id : UQ, NOT NULL,
+사용자가 로그인 시 사용하는 아이디.
+비밀번호 : VARCHAR(255), NOT NULL,
+해시화해 저장될 비밀번호.
+이메일 : VARCHAR(50), UQ, NOT NULL,
+비밀번호 변경 기능에 사용될 이메일 주소.
+비활성화 시기 : DATETIME
+유저가 비활성화된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 로그인id, 이메일은 시스템에서 고유해야 하는 자연 키 후보들이다. UNIQUE 제약조건을 걸어 데이터베이스 레벨에서 중복을 방지하였다.
+초대한 유저는 자기 자신을 참조하는 자기참조 역할을 수행한다. 최초의 관리자(Root)이거나 시스템에 의해 자동 생성된 경우에만 NULL 값을 가지며, 그 외에는 자신을 초대한 유저의 ID를 저장하여 초대 계층을 유지한다.
+파일 권한 키id 는 해당 유저가 소유하는 파일의 접근키 값을 의미한다. 유저는 파일을 소유하는 것이 아니라 접근 권한을 가진다.
+비활성화 시기는 유저의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 유저가 비활성화 되면 파일 권한 키 테이블의 파일 권한 키가 비활성화 된다. 기본 키 : 유저id (유저 테이블)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 유저id : BIGINT, PK, FK, NOT NULL
+해당 권한이 어떤 유저의 권한인지 나타내는 값.
+사람 초대 권한 : BOOLEAN, NOT NULL
+유저가 새로운 유저를 초대할 수 있는지 나타내는 값.
+파일 공유 권한 : BOOLEAN, NOT NULL
+유저가 파일 공유 링크를 만들어 파일을 공유할 수 있는지 나타는 값.
+개인 파일 권한 : BOOLEAN, NOT NULL
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값.
+그룹 생성 권한 : BOOLEAN, NOT NULL
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값. 설계 노트 유저id는 유저 테이블의 PK이면서 권한 테이블의 PK이다. 이 제약조건으로 유저는 1개의 권한을 가지는 것을 보장하였다.
+각각의 권한들은 유저가 할 수 있는 행동을 나타낸다. 기본값으로는 FALSE를 가진다. 기본 키 : 파일 권한 키id (대리 키)
+외래 키 : 파일 권한 키id (파일 권한 키 테이블)
+컬럼 정의 파일 권한 키id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+타입 : VARCHAR(10), NOT NULL,
+권한의 소유가 어떤 타입인지 저장. (user, group)
+할당된 저장 용량 : BIGINT, NOT NULL,
+권한에 저장할 수 있는 가상 파일의 총 저장 용량. (바이트 단위)
+현재 사용 가능 용량 : BIGINT, NOT NULL,
+권한에 저장할 수 있는 가상 파일의 여분 저장 용량(나누어준 용량을 제외한 값)
+부모 권한 키id: BIGINT, FK
+권한에 할당된 저장 용량을 나누어 준(배정해 준) 파일 권한 키 id.
+첫 사용자의 경우 NULL 을 가진다.
+비활성화 시기 : DATETIME
+파일 권한 키가 비활성화된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 추후 확장성을 위해 파일 권한 키 테이블을 따로 구현하였다. 초기에는 그룹 기능은 구현하지 않을 것이지만, 이러한 구조를 가지면 그룹 기능을 붙이기만 하면 파일 시스템과 연동할 수 있다.
+타입은 해당 파일 권한이 어떤 종류인지 지정한다. (개인, 그룹) 할당된 저장 용량은 해당 권한 키로 파일을 얼마나 저장할 수 있는지를 나타낸다.
+할당된 저장 용량은 용량 할당 테이블에서 파생된 비정규화 된 정보이다. 용량 할당 테이블의 값이 변동될 때 마다 계산된다.
+부모 권한 키 id는 파일 권한 키에 할당된 저장 용량을 나누어 준 파일 권한 키 id 값이다. 해당 파일 권한 키 테이블이 비활성화되면 활성화된 부모 권한 키를 찾아 그 용량을 반환한다.
+비활성화 시기는 파일 권한 키의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 기본 키 : 용량 할당id (대리 키)
+외래 키 :
+부여한 용량 할당id (용량 할당 테이블)
+받는 권한 키id (파일 권한 키 테이블)
+주는 권한 키id (파일 권한 키 테이블)
+컬럼 정의 용량 할당id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+부여한 용량 할당id : BIGINT, FK
+용량을 주는 용량 할당id
+NULL 인 경우 system 부여
+받는 권한 키id : BIGINT, FK, NOT NULL
+용량을 받는 파일 권한 키id.
+주는 권한 키id : BIGINT, FK
+용량을 주는 파일 권한 키id.
+NULL 인 경우 system 부여
+할당 용량 : BIGINT, NOT NULL,
+할당하는 용량 크기. (바이트 단위)
+할당 기간 : DATETIME
+용량을 적용 받는 기간.
+NULL 인 경우 기간 제한 없음.
+타입 : VARCHAR(20), NOT NULL
+용량 할당 타입. (event, user_grant, system, punishment)
+세부 내용 : VARCHAR(100)
+용량 할당 세부 내용. 용량을 부여할 때 기제 (ex. 이벤트 1등 당첨)
+비활성화 시기 : DATETIME
+용량 할당이 종료된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 받는 권한 키id는 용량을 할당 받는 파일 권한 키 테이블의 PK이다.
+주는 권한 키id는 용량을 할당하는 파일 권한 키 테이블의 PK이나 NULL을 저장할 수 있다. 이 경우 system에서 부여.
+할당 기간은 해당 용량이 적용되는 기간이다.
+부여한 용량 할당id은 용량을 나누어 준 용량 할당id 이다. NULL 인 경우 system 부여.
+타입은 용량을 부여하는 대략적인 이유를 설명한다. 작동 로직 용량을 줄 때 해당 용량 할당 테이블에 여유 할당 용량이 있는지 검사
+여유 할당 용량 = 할당 용량 - 나누어준 할당 용량 총 합
+여유 할당 용량만큼 나누어 줄 수 있음
+파일 권한 키 테이블의 할당된 저장 용량에 반영 용량을 받을 떄 파일 권한 키 테이블의 할당된 저장 용량에 반영 용량을 반환할 떄 파일 권한 키 테이블의 할당된 저장 용량에 여유 용량이 있는 경우 여유 용량 = 할당된 저장 용량 - 사용 중인 용량
+사용 중인 용량 = 자기참조가 NULL인 가상 디렉터리 테이블의 통계 테이블 크기 값
+여유 용량이 반환하는 용량보다 큰 경우 반환 가능 파일 권한 키 테이블의 할당된 저장 용량에 여유 용량이 없는 경우 반환하지 않고 알림을 줌 용량을 나누어 준 경우 나누어준 모든 용량 할당을 반환하기 전에는 반환 불가능
+반환하지 않고 알림을 줌 용량을 반환시킬 떄 용량을 반환시킬 때 나누어 준 용량이 있는 경우 자기참조 컬럼을 이용해 나누어 준 모든 하위 여유 용량을 반환
+사이드 이펙트에 주의해서 작업해야 하는 항목 여유 공간이 있고 나누어 준 용량이 없는 경우 그냥 반환시킴 여유 공간이 있지만 나누어 준 용량이 있는 경우 알림을 띄어 한번 더 선택하도록 함 여유 공간이 없고 나누어 준 용량이 없는 경우 그냥 반환시킴
+여유 공간이 부족해진 경우 파일 수정 권한을 박탈 후 일정 기간 후 가상 파일 비활성화 여유 공간이 없고 나누어 준 용량이 있는 경우 그냥 반환시킴
+알림을 띄어 한번 더 선택하도록 함 기본 키 : 배치 작업 대기열id (대리 키)
+컬럼 정의 배치 작업 대기열id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+작업 유형 : VARCHAR(50), NOT NULL,
+배치 작업이 어떤 유형인지 저장. (통계 및 집계 등)
+대상 테이블 : VARCHAR(64), NOT NULL,
+작업이 이루어지는 테이블 명을 저장. (테이블 명)
+대상id : BIGINT, NOT NULL
+대상 테이블의 작업 대상id.
+여러 테이블을 처리하기 때문에 FK를 적용하지 않음.
+작업 상태 : VARCHAR(15), NOT NULL,
+작업 상태를 저장. (wait, in_progress, retry_wait, fail, success)
+작업 데이터 : JSON, NOT NULL
+적용되는 상세한 데이터.
+추후 상세 설계 예정.
+시도 횟수 : INT, NOT NULL
+작업이 몇 번 시도되었는지 저장.
+최대 실행 가능 횟수 : INT, NOT NULL
+작업이 재시도될 수 있는 허용 횟수
+다음 실행 시각 : DATETIME
+작업이 시작될 예정 시간을 저장.(이 시간 이후 실행)
+시작 시각 : DATETIME
+가장 최근에 작업이 시작된 시간을 저장.
+생성일 : DATETIME, NOT NULL
+작업이 생성된 시기를 저장.
+완료일 : DATETIME
+작업이 완료된 시기를 저장.
+완료 되지 않았으면 NULL 값을 가짐. 설계 노트 작업 유형은 배치 작업이 어쩐 종류인지 저장한다.
+배치 작업은 작업의 유형에 따라 수행 시간이 다르다.
+사용자가 체감하기 쉬운 것들 가상 디렉터리, 가상 파일, 가상 디렉터리 통계 테이블 등은 몇 초 동안 모아서 처리한다.
+체감하기 어려운 것들은 새벽 시간에 처리한다. 작업 유형 - 추후 달라질 가능성이 농후함 가상 디렉터리 테이블 하위 레벨/권한 전파 폴더 이동 시, 하위 모든 디렉터리의 현재 레벨 재계산 및 읽기/쓰기 레벨 검증 가상 디렉터리 영구 삭제(Soft Delete -&gt; Hard Delete) 제거 시기가 30일 지난 행을 db에서삭제
+반드시 자식 요소(가상 파일, 하위 디렉터리)가 모두 영구 삭제된 후에 부모를 삭제 가상 파일 테이블 권한 동기화 상위 디렉터리의 권한이 변경되었을 때, 하위 파일들의 읽기/쓰기 레벨이 범위 내에 있는지 검사 및 수정 가상 파일 영구 삭제(Soft Delete -&gt; Hard Delete) 제거 시기가 30일 지난 가상 행을 db에서 삭제
+이 작업을 완료한 이후 실제 파일 테이블의 객체가 고아인지 판별하는 과정 필요 추후에 더 정리 예정 기본 키 : 가상 디렉터리id (대리 키)
+외래 키 :
+부모 디렉터리id (가상 디렉터리 테이블)
+파일 권한 키id (가상 요소 테이블)
+컬럼 정의 가상 디렉터리id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키 id : BIGINT, FK, NOT NULL
+가상 디렉터리가 어떤 권한에 속했는지 저장.
+부모 디렉터리id : BIGINT, FK,
+해당 디렉터리의 부모 디렉터리id.
+null 인 경우 해당 권한의 최상위 디렉터리(root).
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 가상 디렉터리의 이름.
+현재 레벨 : INT, NOT NULL
+해당 디렉터리의 부모 개수.
+제거 시기 : DATETIME
+가상 디렉터리가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 읽기, 쓰기 가능 레벨은 유저 또는 그룹 유저가 해당 디렉터리를 읽거나 수정하는 데 필요한 최소한의 레벨이다. 유저는 해당 디렉터리의 가능 레벨 이상의 레벨을 소유하고 있어야지 읽거나 수정할 수 있다.
+유저의 읽기 레벨이 읽기 가능 레벨 미만이면. 해당 디렉터리가 있는지 확인할 수 없다.
+유저의 쓰기 레벨이 쓰기 가능 레벨 미만이면. 해당 디렉터리를 삭제 또는 수정할 수 없다.
+읽기 가능 레벨은 부모 가상 디렉터리의 읽기 가능 레벨보다 높거나 같아야 한다. 쓰기 가능 레벨은 부모 가상 디렉터리의 쓰기 가능 레벨보다 낮거나 같아야 한다. 부모 디렉터리의 수정은 자식 디렉터리도 영향을 받기 때문이다. 디렉터리를 가능 레벨이 다른 디렉터리로 이동할 경우, 자식 가상 디렉터리의 가능 레벨들은 수정되어야 한다. 이동하는 폴더에 따라서 선택권을 준다. 권한 평탄화(전부 같게), 가능한 권한으로부터 +-n
+지정된 이름은 유저가 확인할 수 있는 가상 디렉터리의 이름이다.
+현재 레벨은 부모의 개수이다. 디렉터리는 파일 권한 키 단위로 트리 구조를 유지한다. 제거 시기는 가상 디렉터리의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다.
+가상 디렉터리 테이블이 제거 상태가 된다면 자식 가상 디렉터리와 이에 소속된 가상 파일 요소들도 제거 상태가 되어야 한다. 제거 상태로 수정하기 전에 하위에 소속된 가상 파일 요소들이 공유 파일 요소에 있는지 확인해야 한다. 공유 파일 테이블에 요소가 제거되지 않음 상태로 존재한다면 유저한테 알림을 주어야 한다. 기본 키 : 가상 디렉터리id (가상 디렉터리 테이블)
+외래 키 :
+가상 디렉터리id (가상 디렉터리 테이블)
+컬럼 정의 가상 디렉터리id : BIGINT, PK, FK, NOT NULL
+가상 디렉터리 통계가 어떤 디렉터리에 속했는지 저장.
+크기 : BIGINT, NOT NULL
+해당 디렉터리 하위에 있는 파일의 총 용량.
+디렉터리 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 디렉터리 개수.
+파일 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 파일 개수. 설계 노트 가상 디렉터리id는 가상 디렉터리 테이블의 PK이면서 가상 디렉터리 통계 테이블의 PK이다. 이 제약조건으로 가상 디렉터리는 1개의 통계를 가지는 것을 보장하였다.
+크기, 디렉터리 개수, 파일 개수 등의 통계 칼럼은 하위 가상 디렉터리 테이블의 모든 요소들을 나타내야 한다. 해당 작업은 추후 배치 작업으로 처리해 DB의 부담을 줄인다. 기본 키 : 가상 파일id (대리 키)
+외래 키 : 가상 요소id (가상 요소 테이블)
+실제 파일id (실제 파일 테이블) 컬럼 정의 가상 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+가상 디렉터리id : BIGINT, FK, NOT NULL
+가상 파일이 속해 있는 가상 디렉터리.
+실제 파일id : BIGINT, FK, NOT NULL
+가상 파일이 나타내는 실제 파일id 값.
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 가상 파일의 이름.
+파일 확장자 : VARCHAR(50)
+가상 파일의 확장자.
+제거 시기 : DATETIME
+가상 파일이 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 가상 디렉터리id는 가상 파일이 소속한 디렉터리를 나타낸다. 모든 가상 파일은 반드시 하나의 가상 디렉터리에 소속되어야 한다.
+실제 파일id은 가상 파일이 나타내는 실제 파일의 id이다. 모든 가상 파일은 반드시 하나의 실제 파일을 가져야 한다.
+읽기, 쓰기 가능 레벨은 유저 또는 그룹 유저가 해당 파일을 읽거나 수정하는 데 필요한 최소한의 레벨이다. 유저는 해당 파일의 가능 레벨 이상의 레벨을 소유하고 있어야지 읽거나 수정할 수 있다.
+지정된 이름은 유저가 확인할 수 있는 가상 파일의 이름이다. 해당 가상 파일을 내려받을 경우 해당 이름으로 저장된다.
+파일 확장자는 지정된 이름에서 뽑아내는 값으로 지정된 이름이 수정될 경우 수정되어야 한다. 만약 지정된 이름에 확장자가 없으면 NULL로 지정된다.
+제거 시기는 가상 파일의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다.
+제거 상태로 수정하기 전에 가상 파일 요소가 공유 파일 요소에 있는지 확인해야 한다. 공유 파일 테이블에 요소가 제거되지 않음 상태로 존재한다면 유저한테 알림을 주어야 한다. 기본 키 : 실제 파일id (대리 키)
+컬럼 정의 실제 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+저장된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 실제로 파일이 저장된 이름.
+파일 해시 : CHAR(64), NOT NULL
+중복 파일인지 구분하기 위한 해시값. SHA-256 사용.
+파일 크기 : BIGINT, NOT NULL,
+실제 파일의 저장 용량. (바이트 단위)
+저장 위치 : VARCHAR(255), NOT NULL
+파일이 저장된 위치.
+저장 타입 : VARCHAR(10), NOT NULL
+파일이 저장되는 저장소 타입. (ex. local, minio)
+참조 카운드 : INT NOT NULL
+가상 파일이 참조하고 있는 수.
+제거 시기 : DATETIME
+해당 요소가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 저장된 UUID는 시스템에 파일이 저장된 실제 이름을 나타낸다. 파일을 저장할 때 임의의 문자열로 저장해 같은 이름인 파일들이 저장될 수 있도록 한다.
+파일 해시와 파일 크기는 중복 파일을 검증하기 위한 칼럼이다. 파일 해시와 파일 크기가 같으면 같은 파일로 가정하고 기존의 파일을 활용한다.
+제거 시기는 실제 파일의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다.
+실제 파일이 모든 가상 파일에서 제거되었다면. 해당 파일을 제거 상태로 수정한다.
+저장 위치는 파일이 저장된 위치를 저장한다. 로컬 경로일 수도 있고, 오브젝트 스토리지 경로일 수도 있다.
+저장 타입은 파일이 저장된 저장소가 무엇인지 저장한다.
+참조 카운드는 가상 파일이 실제 파일을 참조하고 있는 개수로 애플리케이션 단에서 관리된다. 기본 키 : 업로드 세션id (대리 키)
+외래 키 :
+파일 권한 키id (가상 요소 테이블)
+유저id (유저 테이블)
+컬럼 정의 업로드 세션id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키id : BIGINT, FK, NOT NULL
+업로드 중인 파일이 어느 권한 소속인지 저장.
+유저id : BIGINT, FK, NOT NULL
+업로드 중인 파일이 어떤 유저가 업로드했는지 저장.
+세션 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 어떤 세션으로 업로드하는지 나타냄.
+전체 조각 수 : INT, NOT NULL
+업로드 되는 조각 개수 총 합.
+총 용량 : BIGINT, NOT NULL
+업로드 되는 조각 용량의 총 합.
+업로드 작업 id : VARCHAR(255)
+오브젝트 스토리지가 발급해주는 작업 ID.
+로컬 경로 : VARCHAR(255)
+로컬 서버에 저장될 때 파츠가 저장되는 임시 폴더 경로.
+마지막 활동 일시 : DATETIME, NOT NULL
+마지막으로 파츠가 전송된 시간. 설계 노트 세선 UUID는 클라이언트에서도 사용되는 값으로. 어떤 세션인지 나타낸다.
+업로드 작업 id는 오브젝트 스토리지를 사용할 때 사용되는 값이다. 로컬 저장소를 사용하면 NULL 값을 가진다.
+마지막 활동 일시는 세션의 수명을 위한 값이다. 특정한 시간 이후(5분)에 파츠 전송이 이루어졌으면 갱신된다. 해당 값으로부터 일정 시간 이상(2일) 갱신이 없으면 파일을 파기한다. 기본 키 : 업로드 파츠id (대리 키)
+외래 키 :
+업로드 세션id (가상 디렉터리 테이블)
+컬럼 정의 업로드 파츠id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+업로드 세션id : BIGINT, FK, NOT NULL
+업로드된 파츠가 어떤 세션 소속인지 저장.
+조각 번호 : INT, NOT NULL
+업로드된 파츠가 세션의 몇 번쨰 조각인지 저장.
+조각 크기 : INT, NOT NULL
+업로드된 파츠의 크기.
+E테그 : VARCHAR(100)
+오브젝트 스토리지가 조각을 받고 나서 반환하는 증명값.
+파츠를 합칠 때 필요한 데이터. 설계 노트 E테그값은 오브젝트 스토리지를 사용할 떄 사용된다. 로컬 환경이면 사용되지 않는다.
+로컬 스토리지에 저장할 때는 세션id-조각번호로 파츠 데이터를 저장한다. 기본 키 : 공유링크id (대리 키)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 공유 링크id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+유저id : BIGINT, FK, NOT NULL
+공유 링크를 생성한 유저가 누구인지 저장.
+공유된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 어떤 공유 링크로 접속했는지 나타냄.
+링크 타입 : VARCHAR(15), NOT NULL,
+공유된 링크가 어떤 타입인지 저장. (user_invite, file_share, group_invite)
+공유 기간 : DATETIME, NOT NULL,
+공유할 수 있는 기간
+암호 : VARCHAR(255)
+해시화해 저장될 비밀번호.
+NULL 인 경우 비밀번호가 없다고 가정.
+사용 가능 횟수 : INT, NOT NULL
+공유 링크가 사용될 수 있는 총 횟수
+사용 횟수 : INT, NOT NULL
+공유 링크기 지금까지 사용된 횟수
+이름 : VARCHAR(50), NOT NULL,
+해당 공유 링크의 명칭
+비활성화 시기 : DATETIME
+그룹이 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐.
+공유 기간, 사람 초대 테이블의 초대 인원, 파일 공유 테이블의 열람 가능 횟수 조건을 체크해서 값 반영 설계 노트 공유된 UUID는 시스템상 유일해야 하는 값이며, 다른 값으로 유추할 수 없어야 한다. 랜덤한 문자열을 생성해 유추할 수 없도록 하였다.
+링크 타입은 해당 링크가 어떤 타입인지 나타내는 값이다. 비활성화 시기는 해당 링크가 사용할 수 있는 상태인지 나타내는 값이다. 이 값은 공유 기간, 사람 초대 테이블의 남은 초대 인원, 파일 공유 테이블의 열람 가능 횟수 3가지 값에 따라 변하도록 설계하였으며, 공유링크의 주인(유저id)이 지정할 수도 있다.
+암호는 해당 공유 링크를 사용하기 전에 입력해야 하는 비밀구절로 암호화해 저장한다. NULL인 경우 암호가 없다고 가정한다.
+사용 가능 횟수는 공유 링크가 사용될 수 있는 총 횟수이다.
+사용 횟수는 공유 링크가 지금까지 사용된 횟수이다. 사용 횟수가 사용 가능 횟수와 같아진다면 그 즉시 공유 링크를 비활성화한다.
+이름은 해당 공유 링크의 이름이다. 기본 키 : 공유 디렉터리id (대리 키)
+외래 키 :
+공유 링크 id (공유 링크 테이블)
+부모 디렉터리 id (공유 디렉터리 테이블)
+컬럼 정의 공유 디렉터리 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유 링크 id : BIGINT, FK, NOT NULL
+공유 디렉터리가 어떤 공유 링크에 속해있는지 저장.
+부모 디렉터리id : BIGINT, FK, NOT NULL
+해당 공유 디렉터리의 부모 디렉터리id.
+null 인 경우 공유 링크의 최상위 디렉터리(root).
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 공유 디렉터리의 이름.
+현재 레벨 : INT, NOT NULL
+해당 디렉터리의 부모 개수
+해당 디렉터리 하위에 있는 파일의 총 용량
+제거 시기 : DATETIME
+공유 디렉터리가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공유 링크 id는 공유 디렉터리가 어떤 링크에 소속되었는지 나타낸다.
+공유 디렉터리는 공유 링크id 단위로 트리 구조를 유지한다. 지정된 이름은 유저가 확인할 수 있는 공유 디렉터리의 이름이다.
+공유 디렉터리 테이블이 제거 상태가 된다면 자식 공유 디렉터리와 이에 소속된 공유 파일 요소들도 제거 상태가 되어야 한다. 기본 키 : 공유 디렉터리 id (대리 키)
+외래 키 : 공유 링크 id (공유 링크 테이블)
+컬럼 정의 공유 파일 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유 디렉터리 id : BIGINT, FK, NOT NULL
+공유 파일이 속해 있는 공유 디렉터리.
+가상 파일 id : BIGINT, FK, NOT NULL
+공유 파일이 나타내는 가상 파일id 값.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 공유 파일의 이름.
+확장자 : VARCHAR(50)
+공유 파일의 확장자.
+제거 시기 : DATETIME
+공유 파일이이 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공유 디렉터리 id는 공유 파일이 소속한 디렉터리를 나타낸다. 모든 공유 파일은 반드시 하나의 공유 디렉터리에 소속되어야 한다.
+가상 파일 id 은 가상 파일이 나타내는 가상 파일의 id이다. 모든 공유 파일은 반드시 하나의 가상 파일을 가져야 한다.
+지정된 이름은 유저가 확인할 수 있는 공유 파일의 이름이다. 해당 공유 파일을 내려받으면 해당 이름으로 저장된다.
+파일 확장자는 지정된 이름에서 뽑아내는 값으로 지정된 이름이 수정될 경우 수정되어야 한다. 만약 지정된 이름에 확장자가 없으면 NULL로 지정된다.
+제거 시기는 가상 파일의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 기본 키 : 공유 링크 id (공유 링크 테이블)
+외래 키 :
+공유 링크 id (공유 링크 테이블)
+그룹 id (그룹 테이블)
+컬럼 정의 공유 링크 id : BIGINT, PK, FK
+어떤 공유 링크인지 지정하는 값.
+그룹 id : BIGINT, FK, NOT NULL
+어떤 그룹 초대 링크인지 지정하는 값. 설계 노트 공유 링크id는 공유 링크 테이블의 PK이면서 그룹 초대 테이블의 PK이다. 이 제약조건으로 그룹 초대 테이블은 1개의 공유링크를 가지는 것을 보장하였다.
+여러 유저는 하나의 그룹에 대해 여러 개의 공유링크를 만들 수 있다.
+어떤 그룹에 어떤 공유링크로 초대하였는지 저장하는 테이블이다. 기본 키 : 그룹 id (대리 키)
+외래 키 :
+파일 권한 키 id (파일 권한 키 테이블)
+소유자id (유저 테이블)
+컬럼 정의 그룹 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키 id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값.
+그룹 이름 : VARCHAR(50), NOT NULL
+그룹의 이름.
+소유자id : BIGINT, FK, NOT NULL
+그룹의 소유자인 유저.
+가입 가능 인원수 : INT, NOT NULL
+해당 그룹에 가입되어 있는 인원수 한계
+현재 가입 인원수 : INT, NOT NULL
+해당 그룹에 가입되어 있는 인원수
+비활성화 시기 : DATETIME
+그룹이 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 파일 권한 키id 는 해당 그룹이 소유하는 파일의 접근키 값을 의미한다. 그룹은 파일을 소유하는 것이 아니라 접근 권한을 가진다.
+소유자id는 그룹의 주인이다. 그룹의 이름과 가입 가능 인원을 조정할 수 있고 그룹을 비활성화 할 수 있다.
+비활성화 시기는 그룹의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 그룹이 비활성화 되면 파일 권한 키 테이블의 파일 권한 키가 비활성화 된다. 기본 키 : 그룹 유저 id (대리 키)
+외래 키 :
+그룹 id (그룹 테이블)
+유저 id (유저 테이블)
+컬럼 정의 그룹 유저 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+그룹 id : BIGINT, FK, NOT NULL
+그룹 유저가 속해 있는 그룹.
+유저 id : BIGINT, FK, NOT NULL
+그룹 유저가 어떤 유저인지 지정.
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+비활성화 시기 : DATETIME
+그룹 유저가 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 읽기, 쓰기 가능 레벨은 유저 또는 그룹 유저가 해당 디렉터리를 읽거나 수정하는 데 필요한 최소한의 레벨이다. 유저는 해당 디렉터리의 가능 레벨 이상의 레벨을 소유하고 있어야지 읽거나 수정할 수 있다.
+유저의 읽기 레벨이 읽기 가능 레벨 미만이면. 해당 디렉터리가 있는지 확인할 수 없다.
+유저의 쓰기 레벨이 쓰기 가능 레벨 미만이면. 해당 디렉터리를 삭제 또는 수정할 수 없다.
+읽기 가능 레벨은 부모 가상 디렉터리의 읽기 가능 레벨보다 높거나 같아야 한다. 쓰기 가능 레벨은 부모 가상 디렉터리의 쓰기 가능 레벨보다 낮거나 같아야 한다. 부모 디렉터리의 수정은 자식 디렉터리도 영향을 받기 때문이다. 디렉터리를 가능 레벨이 다른 디렉터리로 이동할 경우, 자식 가상 디렉터리의 가능 레벨들은 수정되어야 한다. 이동하는 폴더에 따라서 선택권을 준다. 권한 평탄화(전부 같게), 가능한 권한으로부터 +-n 기본 키 : 그룹 유저 id (그룹 유저 테이블)
+외래 키 :
+그룹 유저 id (그룹 유저 테이블)
+컬럼 정의 그룹 유저 id : BIGINT, PK, FK, NOT NULL
+어떤 그룹 유저의 권한인지 지정.
+유저 관리 권한 : BOOLEAN, NOT NULL
+유저 관리 권한 여부.
+파일 관리 권한 : BOOLEAN, NOT NULL
+파일 관리 권한 여부. 설계 노트 그룹 유저id는 그룹 유저 테이블의 PK이면서 그룹 유저 권한 테이블의 PK이다. 이 제약조건으로 그룹 유저는 1개의 권한을 가지는 것을 보장하였다.
+유저 관리 권한은 그룹 유저의 초대, 추방, 읽기 쓰기 가능 레벨을 수정할 수 있는 권한이다.
+파일 관리 권한은 그룹 유저의 파일, 디렉터리 이름 변경 및 삭제 등을 관리할 수 있는 권한이다.
+해당 테이블의 권한은 그룹 기능을 구현하기 전 세분화한다. ]]></description><link>개인-파일-공유-서버(진행-중)/02.-데이터베이스-설계/01.-erd.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/02. 데이터베이스 설계/01. ERD.md</guid><pubDate>Thu, 05 Feb 2026 10:08:21 GMT</pubDate><enclosure url="." length="0" type="false"/><content:encoded>&lt;figure&gt;&lt;img src="."&gt;&lt;/figure&gt;</content:encoded></item><item><title><![CDATA[01. ERD1]]></title><description><![CDATA[<img alt="Pasted image 20260122174704.png" src="media/pasted-image-20260122174704.png" target="_self">
+배치 작업 erd 다시 그려야함함
+컬럼 정의 생성일 : DATETIME, NOT NULL, 생성된 시간.
+수정일 : DATETIME, NOT NULL, 수정된 시간.
+생성자 : BIGINT, NOT NULL, 생성한 유저id (유저 테이블).
+수정자 : BIGINT, NOT NULL, 수정한 유저id (유저 테이블). 설계 노트 생성일과 수정일은 데이터베이스의 기능을 사용해 자동으로 반영되도록 한다.
+생성자와 수정자는 애플리케이션 설정으로 자동화한다.
+생성자와 수정자에 FK가 걸려있으므로 system user를 생성해야 한다. 기본 키 : 유저id (대리 키)
+외래 키 : 파일 권한 키id (파일 권한 키 테이블)
+초대한 유저 (유저 테이블) 컬럼 정의 유저id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값.
+초대한 유저 : BIGINT, FK
+해당 유저를 초대한 사람. 관리자(root)에 의해 초대된 경우 NULL 값을 가짐.
+로그인id : UQ, NOT NULL,
+사용자가 로그인 시 사용하는 아이디.
+비밀번호 : VARCHAR(255), NOT NULL,
+해시화해 저장될 비밀번호.
+이메일 : VARCHAR(50), UQ, NOT NULL,
+비밀번호 변경 기능에 사용될 이메일 주소.
+비활성화 시기 : DATETIME
+유저가 비활성화된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 로그인id, 이메일은 시스템에서 고유해야 하는 자연 키 후보들이다. UNIQUE 제약조건을 걸어 데이터베이스 레벨에서 중복을 방지하였다.
+초대한 유저는 자기 자신을 참조하는 자기참조 역할을 수행한다. 최초의 관리자(Root)이거나 시스템에 의해 자동 생성된 경우에만 NULL 값을 가지며, 그 외에는 자신을 초대한 유저의 ID를 저장하여 초대 계층을 유지한다.
+파일 권한 키id 는 해당 유저가 소유하는 파일의 접근키 값을 의미한다. 유저는 파일을 소유하는 것이 아니라 접근 권한을 가진다.
+비활성화 시기는 유저의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 유저가 비활성화 되면 파일 권한 키 테이블의 파일 권한 키가 비활성화 된다. 기본 키 : 유저id (유저 테이블)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 유저id : BIGINT, PK, FK, NOT NULL
+해당 권한이 어떤 유저의 권한인지 나타내는 값.
+사람 초대 권한 : BOOLEAN, NOT NULL
+유저가 새로운 유저를 초대할 수 있는지 나타내는 값.
+파일 공유 권한 : BOOLEAN, NOT NULL
+유저가 파일 공유 링크를 만들어 파일을 공유할 수 있는지 나타는 값.
+개인 파일 권한 : BOOLEAN, NOT NULL
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값.
+그룹 생성 권한 : BOOLEAN, NOT NULL
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값. 설계 노트 유저id는 유저 테이블의 PK이면서 권한 테이블의 PK이다. 이 제약조건으로 유저는 1개의 권한을 가지는 것을 보장하였다.
+각각의 권한들은 유저가 할 수 있는 행동을 나타낸다. 기본값으로는 FALSE를 가진다. 기본 키 : 파일 권한 키id (대리 키)
+외래 키 : 파일 권한 키id (파일 권한 키 테이블)
+컬럼 정의 파일 권한 키id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+타입 : VARCHAR(10), NOT NULL,
+권한의 소유가 어떤 타입인지 저장. (user, group)
+할당된 저장 용량 : BIGINT, NOT NULL,
+권한에 저장할 수 있는 가상 파일의 총 저장 용량. (바이트 단위)
+현재 사용 가능 용량 : BIGINT, NOT NULL,
+권한에 저장할 수 있는 가상 파일의 여분 저장 용량(나누어준 용량을 제외한 값)
+부모 권한 키id: BIGINT, FK
+권한에 할당된 저장 용량을 나누어 준(배정해 준) 파일 권한 키 id.
+첫 사용자의 경우 NULL 을 가진다.
+비활성화 시기 : DATETIME
+파일 권한 키가 비활성화된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 추후 확장성을 위해 파일 권한 키 테이블을 따로 구현하였다. 초기에는 그룹 기능은 구현하지 않을 것이지만, 이러한 구조를 가지면 그룹 기능을 붙이기만 하면 파일 시스템과 연동할 수 있다.
+타입은 해당 파일 권한이 어떤 종류인지 지정한다. (개인, 그룹) 할당된 저장 용량은 해당 권한 키로 파일을 얼마나 저장할 수 있는지를 나타낸다.
+할당된 저장 용량은 용량 할당 테이블에서 파생된 비정규화 된 정보이다. 용량 할당 테이블의 값이 변동될 때 마다 계산된다.
+부모 권한 키 id는 파일 권한 키에 할당된 저장 용량을 나누어 준 파일 권한 키 id 값이다. 해당 파일 권한 키 테이블이 비활성화되면 활성화된 부모 권한 키를 찾아 그 용량을 반환한다.
+비활성화 시기는 파일 권한 키의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 기본 키 : 용량 할당id (대리 키)
+외래 키 :
+부여한 용량 할당id (용량 할당 테이블)
+받는 권한 키id (파일 권한 키 테이블)
+주는 권한 키id (파일 권한 키 테이블)
+컬럼 정의 용량 할당id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+부여한 용량 할당id : BIGINT, FK
+용량을 주는 용량 할당id
+NULL 인 경우 system 부여
+받는 권한 키id : BIGINT, FK, NOT NULL
+용량을 받는 파일 권한 키id.
+주는 권한 키id : BIGINT, FK
+용량을 주는 파일 권한 키id.
+NULL 인 경우 system 부여
+할당 용량 : BIGINT, NOT NULL,
+할당하는 용량 크기. (바이트 단위)
+할당 기간 : DATETIME
+용량을 적용 받는 기간.
+NULL 인 경우 기간 제한 없음.
+타입 : VARCHAR(20), NOT NULL
+용량 할당 타입. (event, user_grant, system, punishment)
+세부 내용 : VARCHAR(100)
+용량 할당 세부 내용. 용량을 부여할 때 기제 (ex. 이벤트 1등 당첨)
+비활성화 시기 : DATETIME
+용량 할당이 종료된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 받는 권한 키id는 용량을 할당 받는 파일 권한 키 테이블의 PK이다.
+주는 권한 키id는 용량을 할당하는 파일 권한 키 테이블의 PK이나 NULL을 저장할 수 있다. 이 경우 system에서 부여.
+할당 기간은 해당 용량이 적용되는 기간이다.
+부여한 용량 할당id은 용량을 나누어 준 용량 할당id 이다. NULL 인 경우 system 부여.
+타입은 용량을 부여하는 대략적인 이유를 설명한다. 작동 로직 용량을 줄 때 해당 용량 할당 테이블에 여유 할당 용량이 있는지 검사
+여유 할당 용량 = 할당 용량 - 나누어준 할당 용량 총 합
+여유 할당 용량만큼 나누어 줄 수 있음
+파일 권한 키 테이블의 할당된 저장 용량에 반영 용량을 받을 떄 파일 권한 키 테이블의 할당된 저장 용량에 반영 용량을 반환할 떄 파일 권한 키 테이블의 할당된 저장 용량에 여유 용량이 있는 경우 여유 용량 = 할당된 저장 용량 - 사용 중인 용량
+사용 중인 용량 = 자기참조가 NULL인 가상 디렉터리 테이블의 통계 테이블 크기 값
+여유 용량이 반환하는 용량보다 큰 경우 반환 가능 파일 권한 키 테이블의 할당된 저장 용량에 여유 용량이 없는 경우 반환하지 않고 알림을 줌 용량을 나누어 준 경우 나누어준 모든 용량 할당을 반환하기 전에는 반환 불가능
+반환하지 않고 알림을 줌 용량을 반환시킬 떄 용량을 반환시킬 때 나누어 준 용량이 있는 경우 자기참조 컬럼을 이용해 나누어 준 모든 하위 여유 용량을 반환
+사이드 이펙트에 주의해서 작업해야 하는 항목 여유 공간이 있고 나누어 준 용량이 없는 경우 그냥 반환시킴 여유 공간이 있지만 나누어 준 용량이 있는 경우 알림을 띄어 한번 더 선택하도록 함 여유 공간이 없고 나누어 준 용량이 없는 경우 그냥 반환시킴
+여유 공간이 부족해진 경우 파일 수정 권한을 박탈 후 일정 기간 후 가상 파일 비활성화 여유 공간이 없고 나누어 준 용량이 있는 경우 그냥 반환시킴
+알림을 띄어 한번 더 선택하도록 함 기본 키 : 배치 작업 대기열id (대리 키)
+컬럼 정의 배치 작업 대기열id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+작업 유형 : VARCHAR(50), NOT NULL,
+배치 작업이 어떤 유형인지 저장. (통계 및 집계 등)
+대상 테이블 : VARCHAR(64), NOT NULL,
+작업이 이루어지는 테이블 명을 저장. (테이블 명)
+대상id : BIGINT, NOT NULL
+대상 테이블의 작업 대상id.
+여러 테이블을 처리하기 때문에 FK를 적용하지 않음.
+작업 상태 : VARCHAR(15), NOT NULL,
+작업 상태를 저장. (wait, in_progress, retry_wait, fail, success)
+작업 데이터 : JSON, NOT NULL
+적용되는 상세한 데이터.
+추후 상세 설계 예정.
+시도 횟수 : INT, NOT NULL
+작업이 몇 번 시도되었는지 저장.
+최대 실행 가능 횟수 : INT, NOT NULL
+작업이 재시도될 수 있는 허용 횟수
+다음 실행 시각 : DATETIME
+작업이 시작될 예정 시간을 저장.(이 시간 이후 실행)
+시작 시각 : DATETIME
+가장 최근에 작업이 시작된 시간을 저장.
+생성일 : DATETIME, NOT NULL
+작업이 생성된 시기를 저장.
+완료일 : DATETIME
+작업이 완료된 시기를 저장.
+완료 되지 않았으면 NULL 값을 가짐. 설계 노트 작업 유형은 배치 작업이 어쩐 종류인지 저장한다.
+배치 작업은 작업의 유형에 따라 수행 시간이 다르다.
+사용자가 체감하기 쉬운 것들 가상 디렉터리, 가상 파일, 가상 디렉터리 통계 테이블 등은 몇 초 동안 모아서 처리한다.
+체감하기 어려운 것들은 새벽 시간에 처리한다. 작업 유형 - 추후 달라질 가능성이 농후함 가상 디렉터리 테이블 하위 레벨/권한 전파 폴더 이동 시, 하위 모든 디렉터리의 현재 레벨 재계산 및 읽기/쓰기 레벨 검증 가상 디렉터리 영구 삭제(Soft Delete -&gt; Hard Delete) 제거 시기가 30일 지난 행을 db에서삭제
+반드시 자식 요소(가상 파일, 하위 디렉터리)가 모두 영구 삭제된 후에 부모를 삭제 가상 파일 테이블 권한 동기화 상위 디렉터리의 권한이 변경되었을 때, 하위 파일들의 읽기/쓰기 레벨이 범위 내에 있는지 검사 및 수정 가상 파일 영구 삭제(Soft Delete -&gt; Hard Delete) 제거 시기가 30일 지난 가상 행을 db에서 삭제
+이 작업을 완료한 이후 실제 파일 테이블의 객체가 고아인지 판별하는 과정 필요 추후에 더 정리 예정 기본 키 : 가상 디렉터리id (대리 키)
+외래 키 :
+부모 디렉터리id (가상 디렉터리 테이블)
+파일 권한 키id (가상 요소 테이블)
+컬럼 정의 가상 디렉터리id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키 id : BIGINT, FK, NOT NULL
+가상 디렉터리가 어떤 권한에 속했는지 저장.
+부모 디렉터리id : BIGINT, FK,
+해당 디렉터리의 부모 디렉터리id.
+null 인 경우 해당 권한의 최상위 디렉터리(root).
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 가상 디렉터리의 이름.
+현재 레벨 : INT, NOT NULL
+해당 디렉터리의 부모 개수.
+제거 시기 : DATETIME
+가상 디렉터리가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 읽기, 쓰기 가능 레벨은 유저 또는 그룹 유저가 해당 디렉터리를 읽거나 수정하는 데 필요한 최소한의 레벨이다. 유저는 해당 디렉터리의 가능 레벨 이상의 레벨을 소유하고 있어야지 읽거나 수정할 수 있다.
+유저의 읽기 레벨이 읽기 가능 레벨 미만이면. 해당 디렉터리가 있는지 확인할 수 없다.
+유저의 쓰기 레벨이 쓰기 가능 레벨 미만이면. 해당 디렉터리를 삭제 또는 수정할 수 없다.
+읽기 가능 레벨은 부모 가상 디렉터리의 읽기 가능 레벨보다 높거나 같아야 한다. 쓰기 가능 레벨은 부모 가상 디렉터리의 쓰기 가능 레벨보다 낮거나 같아야 한다. 부모 디렉터리의 수정은 자식 디렉터리도 영향을 받기 때문이다. 디렉터리를 가능 레벨이 다른 디렉터리로 이동할 경우, 자식 가상 디렉터리의 가능 레벨들은 수정되어야 한다. 이동하는 폴더에 따라서 선택권을 준다. 권한 평탄화(전부 같게), 가능한 권한으로부터 +-n
+지정된 이름은 유저가 확인할 수 있는 가상 디렉터리의 이름이다.
+현재 레벨은 부모의 개수이다. 디렉터리는 파일 권한 키 단위로 트리 구조를 유지한다. 제거 시기는 가상 디렉터리의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다.
+가상 디렉터리 테이블이 제거 상태가 된다면 자식 가상 디렉터리와 이에 소속된 가상 파일 요소들도 제거 상태가 되어야 한다. 제거 상태로 수정하기 전에 하위에 소속된 가상 파일 요소들이 공유 파일 요소에 있는지 확인해야 한다. 공유 파일 테이블에 요소가 제거되지 않음 상태로 존재한다면 유저한테 알림을 주어야 한다. 기본 키 : 가상 디렉터리id (가상 디렉터리 테이블)
+외래 키 :
+가상 디렉터리id (가상 디렉터리 테이블)
+컬럼 정의 가상 디렉터리id : BIGINT, PK, FK, NOT NULL
+가상 디렉터리 통계가 어떤 디렉터리에 속했는지 저장.
+크기 : BIGINT, NOT NULL
+해당 디렉터리 하위에 있는 파일의 총 용량.
+디렉터리 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 디렉터리 개수.
+파일 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 파일 개수. 설계 노트 가상 디렉터리id는 가상 디렉터리 테이블의 PK이면서 가상 디렉터리 통계 테이블의 PK이다. 이 제약조건으로 가상 디렉터리는 1개의 통계를 가지는 것을 보장하였다.
+크기, 디렉터리 개수, 파일 개수 등의 통계 칼럼은 하위 가상 디렉터리 테이블의 모든 요소들을 나타내야 한다. 해당 작업은 추후 배치 작업으로 처리해 DB의 부담을 줄인다. 기본 키 : 가상 파일id (대리 키)
+외래 키 : 가상 요소id (가상 요소 테이블)
+실제 파일id (실제 파일 테이블) 컬럼 정의 가상 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+가상 디렉터리id : BIGINT, FK, NOT NULL
+가상 파일이 속해 있는 가상 디렉터리.
+실제 파일id : BIGINT, FK, NOT NULL
+가상 파일이 나타내는 실제 파일id 값.
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 가상 파일의 이름.
+파일 확장자 : VARCHAR(50)
+가상 파일의 확장자.
+제거 시기 : DATETIME
+가상 파일이 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 가상 디렉터리id는 가상 파일이 소속한 디렉터리를 나타낸다. 모든 가상 파일은 반드시 하나의 가상 디렉터리에 소속되어야 한다.
+실제 파일id은 가상 파일이 나타내는 실제 파일의 id이다. 모든 가상 파일은 반드시 하나의 실제 파일을 가져야 한다.
+읽기, 쓰기 가능 레벨은 유저 또는 그룹 유저가 해당 파일을 읽거나 수정하는 데 필요한 최소한의 레벨이다. 유저는 해당 파일의 가능 레벨 이상의 레벨을 소유하고 있어야지 읽거나 수정할 수 있다.
+지정된 이름은 유저가 확인할 수 있는 가상 파일의 이름이다. 해당 가상 파일을 내려받을 경우 해당 이름으로 저장된다.
+파일 확장자는 지정된 이름에서 뽑아내는 값으로 지정된 이름이 수정될 경우 수정되어야 한다. 만약 지정된 이름에 확장자가 없으면 NULL로 지정된다.
+제거 시기는 가상 파일의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다.
+제거 상태로 수정하기 전에 가상 파일 요소가 공유 파일 요소에 있는지 확인해야 한다. 공유 파일 테이블에 요소가 제거되지 않음 상태로 존재한다면 유저한테 알림을 주어야 한다. 기본 키 : 실제 파일id (대리 키)
+컬럼 정의 실제 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+저장된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 실제로 파일이 저장된 이름.
+파일 해시 : CHAR(64), NOT NULL
+중복 파일인지 구분하기 위한 해시값. SHA-256 사용.
+파일 크기 : BIGINT, NOT NULL,
+실제 파일의 저장 용량. (바이트 단위)
+저장 위치 : VARCHAR(255), NOT NULL
+파일이 저장된 위치.
+저장 타입 : VARCHAR(10), NOT NULL
+파일이 저장되는 저장소 타입. (ex. local, minio)
+참조 카운드 : INT NOT NULL
+가상 파일이 참조하고 있는 수.
+제거 시기 : DATETIME
+해당 요소가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 저장된 UUID는 시스템에 파일이 저장된 실제 이름을 나타낸다. 파일을 저장할 때 임의의 문자열로 저장해 같은 이름인 파일들이 저장될 수 있도록 한다.
+파일 해시와 파일 크기는 중복 파일을 검증하기 위한 칼럼이다. 파일 해시와 파일 크기가 같으면 같은 파일로 가정하고 기존의 파일을 활용한다.
+제거 시기는 실제 파일의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다.
+실제 파일이 모든 가상 파일에서 제거되었다면. 해당 파일을 제거 상태로 수정한다.
+저장 위치는 파일이 저장된 위치를 저장한다. 로컬 경로일 수도 있고, 오브젝트 스토리지 경로일 수도 있다.
+저장 타입은 파일이 저장된 저장소가 무엇인지 저장한다.
+참조 카운드는 가상 파일이 실제 파일을 참조하고 있는 개수로 애플리케이션 단에서 관리된다. 기본 키 : 업로드 세션id (대리 키)
+외래 키 :
+파일 권한 키id (가상 요소 테이블)
+유저id (유저 테이블)
+컬럼 정의 업로드 세션id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키id : BIGINT, FK, NOT NULL
+업로드 중인 파일이 어느 권한 소속인지 저장.
+유저id : BIGINT, FK, NOT NULL
+업로드 중인 파일이 어떤 유저가 업로드했는지 저장.
+세션 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 어떤 세션으로 업로드하는지 나타냄.
+전체 조각 수 : INT, NOT NULL
+업로드 되는 조각 개수 총 합.
+총 용량 : BIGINT, NOT NULL
+업로드 되는 조각 용량의 총 합.
+업로드 작업 id : VARCHAR(255)
+오브젝트 스토리지가 발급해주는 작업 ID.
+로컬 경로 : VARCHAR(255)
+로컬 서버에 저장될 때 파츠가 저장되는 임시 폴더 경로.
+마지막 활동 일시 : DATETIME, NOT NULL
+마지막으로 파츠가 전송된 시간. 설계 노트 세선 UUID는 클라이언트에서도 사용되는 값으로. 어떤 세션인지 나타낸다.
+업로드 작업 id는 오브젝트 스토리지를 사용할 때 사용되는 값이다. 로컬 저장소를 사용하면 NULL 값을 가진다.
+마지막 활동 일시는 세션의 수명을 위한 값이다. 특정한 시간 이후(5분)에 파츠 전송이 이루어졌으면 갱신된다. 해당 값으로부터 일정 시간 이상(2일) 갱신이 없으면 파일을 파기한다. 기본 키 : 업로드 파츠id (대리 키)
+외래 키 :
+업로드 세션id (가상 디렉터리 테이블)
+컬럼 정의 업로드 파츠id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+업로드 세션id : BIGINT, FK, NOT NULL
+업로드된 파츠가 어떤 세션 소속인지 저장.
+조각 번호 : INT, NOT NULL
+업로드된 파츠가 세션의 몇 번쨰 조각인지 저장.
+조각 크기 : INT, NOT NULL
+업로드된 파츠의 크기.
+E테그 : VARCHAR(100)
+오브젝트 스토리지가 조각을 받고 나서 반환하는 증명값.
+파츠를 합칠 때 필요한 데이터. 설계 노트 E테그값은 오브젝트 스토리지를 사용할 떄 사용된다. 로컬 환경이면 사용되지 않는다.
+로컬 스토리지에 저장할 때는 세션id-조각번호로 파츠 데이터를 저장한다. 기본 키 : 공유링크id (대리 키)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 공유 링크id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+유저id : BIGINT, FK, NOT NULL
+공유 링크를 생성한 유저가 누구인지 저장.
+공유된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 어떤 공유 링크로 접속했는지 나타냄.
+링크 타입 : VARCHAR(15), NOT NULL,
+공유된 링크가 어떤 타입인지 저장. (user_invite, file_share, group_invite)
+공유 기간 : DATETIME, NOT NULL,
+공유할 수 있는 기간
+암호 : VARCHAR(255)
+해시화해 저장될 비밀번호.
+NULL 인 경우 비밀번호가 없다고 가정.
+사용 가능 횟수 : INT, NOT NULL
+공유 링크가 사용될 수 있는 총 횟수
+사용 횟수 : INT, NOT NULL
+공유 링크기 지금까지 사용된 횟수
+이름 : VARCHAR(50), NOT NULL,
+해당 공유 링크의 명칭
+비활성화 시기 : DATETIME
+그룹이 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐.
+공유 기간, 사람 초대 테이블의 초대 인원, 파일 공유 테이블의 열람 가능 횟수 조건을 체크해서 값 반영 설계 노트 공유된 UUID는 시스템상 유일해야 하는 값이며, 다른 값으로 유추할 수 없어야 한다. 랜덤한 문자열을 생성해 유추할 수 없도록 하였다.
+링크 타입은 해당 링크가 어떤 타입인지 나타내는 값이다. 비활성화 시기는 해당 링크가 사용할 수 있는 상태인지 나타내는 값이다. 이 값은 공유 기간, 사람 초대 테이블의 남은 초대 인원, 파일 공유 테이블의 열람 가능 횟수 3가지 값에 따라 변하도록 설계하였으며, 공유링크의 주인(유저id)이 지정할 수도 있다.
+암호는 해당 공유 링크를 사용하기 전에 입력해야 하는 비밀구절로 암호화해 저장한다. NULL인 경우 암호가 없다고 가정한다.
+사용 가능 횟수는 공유 링크가 사용될 수 있는 총 횟수이다.
+사용 횟수는 공유 링크가 지금까지 사용된 횟수이다. 사용 횟수가 사용 가능 횟수와 같아진다면 그 즉시 공유 링크를 비활성화한다.
+이름은 해당 공유 링크의 이름이다. 기본 키 : 공유 디렉터리id (대리 키)
+외래 키 :
+공유 링크 id (공유 링크 테이블)
+부모 디렉터리 id (공유 디렉터리 테이블)
+컬럼 정의 공유 디렉터리 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유 링크 id : BIGINT, FK, NOT NULL
+공유 디렉터리가 어떤 공유 링크에 속해있는지 저장.
+부모 디렉터리id : BIGINT, FK, NOT NULL
+해당 공유 디렉터리의 부모 디렉터리id.
+null 인 경우 공유 링크의 최상위 디렉터리(root).
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 공유 디렉터리의 이름.
+현재 레벨 : INT, NOT NULL
+해당 디렉터리의 부모 개수
+해당 디렉터리 하위에 있는 파일의 총 용량
+제거 시기 : DATETIME
+공유 디렉터리가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공유 링크 id는 공유 디렉터리가 어떤 링크에 소속되었는지 나타낸다.
+공유 디렉터리는 공유 링크id 단위로 트리 구조를 유지한다. 지정된 이름은 유저가 확인할 수 있는 공유 디렉터리의 이름이다.
+공유 디렉터리 테이블이 제거 상태가 된다면 자식 공유 디렉터리와 이에 소속된 공유 파일 요소들도 제거 상태가 되어야 한다. 기본 키 : 공유 디렉터리 id (대리 키)
+외래 키 : 공유 링크 id (공유 링크 테이블)
+컬럼 정의 공유 파일 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유 디렉터리 id : BIGINT, FK, NOT NULL
+공유 파일이 속해 있는 공유 디렉터리.
+가상 파일 id : BIGINT, FK, NOT NULL
+공유 파일이 나타내는 가상 파일id 값.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 공유 파일의 이름.
+확장자 : VARCHAR(50)
+공유 파일의 확장자.
+제거 시기 : DATETIME
+공유 파일이이 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공유 디렉터리 id는 공유 파일이 소속한 디렉터리를 나타낸다. 모든 공유 파일은 반드시 하나의 공유 디렉터리에 소속되어야 한다.
+가상 파일 id 은 가상 파일이 나타내는 가상 파일의 id이다. 모든 공유 파일은 반드시 하나의 가상 파일을 가져야 한다.
+지정된 이름은 유저가 확인할 수 있는 공유 파일의 이름이다. 해당 공유 파일을 내려받으면 해당 이름으로 저장된다.
+파일 확장자는 지정된 이름에서 뽑아내는 값으로 지정된 이름이 수정될 경우 수정되어야 한다. 만약 지정된 이름에 확장자가 없으면 NULL로 지정된다.
+제거 시기는 가상 파일의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 기본 키 : 공유 링크 id (공유 링크 테이블)
+외래 키 :
+공유 링크 id (공유 링크 테이블)
+그룹 id (그룹 테이블)
+컬럼 정의 공유 링크 id : BIGINT, PK, FK
+어떤 공유 링크인지 지정하는 값.
+그룹 id : BIGINT, FK, NOT NULL
+어떤 그룹 초대 링크인지 지정하는 값. 설계 노트 공유 링크id는 공유 링크 테이블의 PK이면서 그룹 초대 테이블의 PK이다. 이 제약조건으로 그룹 초대 테이블은 1개의 공유링크를 가지는 것을 보장하였다.
+여러 유저는 하나의 그룹에 대해 여러 개의 공유링크를 만들 수 있다.
+어떤 그룹에 어떤 공유링크로 초대하였는지 저장하는 테이블이다. 기본 키 : 그룹 id (대리 키)
+외래 키 :
+파일 권한 키 id (파일 권한 키 테이블)
+소유자id (유저 테이블)
+컬럼 정의 그룹 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키 id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값.
+그룹 이름 : VARCHAR(50), NOT NULL
+그룹의 이름.
+소유자id : BIGINT, FK, NOT NULL
+그룹의 소유자인 유저.
+가입 가능 인원수 : INT, NOT NULL
+해당 그룹에 가입되어 있는 인원수 한계
+현재 가입 인원수 : INT, NOT NULL
+해당 그룹에 가입되어 있는 인원수
+비활성화 시기 : DATETIME
+그룹이 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 파일 권한 키id 는 해당 그룹이 소유하는 파일의 접근키 값을 의미한다. 그룹은 파일을 소유하는 것이 아니라 접근 권한을 가진다.
+소유자id는 그룹의 주인이다. 그룹의 이름과 가입 가능 인원을 조정할 수 있고 그룹을 비활성화 할 수 있다.
+비활성화 시기는 그룹의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 그룹이 비활성화 되면 파일 권한 키 테이블의 파일 권한 키가 비활성화 된다. 기본 키 : 그룹 유저 id (대리 키)
+외래 키 :
+그룹 id (그룹 테이블)
+유저 id (유저 테이블)
+컬럼 정의 그룹 유저 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+그룹 id : BIGINT, FK, NOT NULL
+그룹 유저가 속해 있는 그룹.
+유저 id : BIGINT, FK, NOT NULL
+그룹 유저가 어떤 유저인지 지정.
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+비활성화 시기 : DATETIME
+그룹 유저가 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 읽기, 쓰기 가능 레벨은 유저 또는 그룹 유저가 해당 디렉터리를 읽거나 수정하는 데 필요한 최소한의 레벨이다. 유저는 해당 디렉터리의 가능 레벨 이상의 레벨을 소유하고 있어야지 읽거나 수정할 수 있다.
+유저의 읽기 레벨이 읽기 가능 레벨 미만이면. 해당 디렉터리가 있는지 확인할 수 없다.
+유저의 쓰기 레벨이 쓰기 가능 레벨 미만이면. 해당 디렉터리를 삭제 또는 수정할 수 없다.
+읽기 가능 레벨은 부모 가상 디렉터리의 읽기 가능 레벨보다 높거나 같아야 한다. 쓰기 가능 레벨은 부모 가상 디렉터리의 쓰기 가능 레벨보다 낮거나 같아야 한다. 부모 디렉터리의 수정은 자식 디렉터리도 영향을 받기 때문이다. 디렉터리를 가능 레벨이 다른 디렉터리로 이동할 경우, 자식 가상 디렉터리의 가능 레벨들은 수정되어야 한다. 이동하는 폴더에 따라서 선택권을 준다. 권한 평탄화(전부 같게), 가능한 권한으로부터 +-n 기본 키 : 그룹 유저 id (그룹 유저 테이블)
+외래 키 :
+그룹 유저 id (그룹 유저 테이블)
+컬럼 정의 그룹 유저 id : BIGINT, PK, FK, NOT NULL
+어떤 그룹 유저의 권한인지 지정.
+유저 관리 권한 : BOOLEAN, NOT NULL
+유저 관리 권한 여부.
+파일 관리 권한 : BOOLEAN, NOT NULL
+파일 관리 권한 여부. 설계 노트 그룹 유저id는 그룹 유저 테이블의 PK이면서 그룹 유저 권한 테이블의 PK이다. 이 제약조건으로 그룹 유저는 1개의 권한을 가지는 것을 보장하였다.
+유저 관리 권한은 그룹 유저의 초대, 추방, 읽기 쓰기 가능 레벨을 수정할 수 있는 권한이다.
+파일 관리 권한은 그룹 유저의 파일, 디렉터리 이름 변경 및 삭제 등을 관리할 수 있는 권한이다.
+해당 테이블의 권한은 그룹 기능을 구현하기 전 세분화한다. ]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v003/01.-erd1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V003/01. ERD1.md</guid><pubDate>Thu, 05 Feb 2026 10:08:21 GMT</pubDate><enclosure url="." length="0" type="false"/><content:encoded>&lt;figure&gt;&lt;img src="."&gt;&lt;/figure&gt;</content:encoded></item><item><title><![CDATA[03. 인덱스 상세 설계서]]></title><description><![CDATA[
+인덱스명:idx_virtual_directories_parent_name
+컬럼: file_permission_id, parent_directory_id, deleted_at, name, directory_id
+설명: 부모 폴더 내에서 이름(name)으로 정렬된 목록을 가져올 때 사용 인덱스명:idx_virtual_files_directory_name
+컬럼: directory_id, deleted_at, name, extension, virtual_file_id
+설명: 폴더 내 파일들을 이름(name) 순으로 보여줄 때 사용 인덱스명:idx_virtual_directories_parent_updated
+컬럼: file_permission_id, parent_directory_id, deleted_at, updated_at, directory_id
+설명: 부모 폴더 내 디렉터리들을 최근 수정된 순서(updated_at)로 보여줄 때 사용 인덱스명:idx_virtual_files_directory_updated
+컬럼: directory_id, deleted_at, updated_at, extension, virtual_file_id
+설명: 폴더 내 파일들을 최근 수정된 순서(updated_at)로 보여줄 때 사용 인덱스명:idx_real_files_hash_size
+컬럼: file_hash, file_size
+설명: 업로드 전 중복 여부를 판단 인덱스명:idx_share_directories_link_parent
+컬럼: share_link_id, deleted_at, parent_directory_id, name, share_directory_id
+설명: 공유 링크 내부 구조를 탐색할 때 사용 인덱스명:idx_share_files_directory_name
+컬럼: share_directory_id, deleted_at, name, share_file_id
+설명: 공유된 폴더 내부의 파일을 이름순으로 조회할 때 사용 인덱스명:idx_capacity_allocations_active
+컬럼: receiver_permission_id, deleted_at, expiration_date, allocated_size
+설명: 만료되지 않은(expiration_date) 활성 할당량을 빠르게 합산(active)하기 위한 인덱스 인덱스명:idx_upload_parts_session_order
+컬럼: session_id, part_number
+설명: 세션별 파츠를 순서(order)대로 정렬하여 병합하기 위한 인덱스 인덱스명:idx_batch_job_queues_polling
+컬럼: status, next_run_at,
+설명: 워커(Worker)가 상태(status)를 기준으로 다음 작업을 가져올 때 (next_run_at) 사용
+]]></description><link>개인-파일-공유-서버(진행-중)/02.-데이터베이스-설계/03.-인덱스-상세-설계서.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/02. 데이터베이스 설계/03. 인덱스 상세 설계서.md</guid><pubDate>Thu, 05 Feb 2026 08:45:42 GMT</pubDate></item><item><title><![CDATA[03. 인덱스 상세 설계서1]]></title><description><![CDATA[
+인덱스명:idx_virtual_directories_parent_name
+컬럼: file_permission_id, parent_directory_id, deleted_at, name, directory_id
+설명: 부모 폴더 내에서 이름(name)으로 정렬된 목록을 가져올 때 사용 인덱스명:idx_virtual_files_directory_name
+컬럼: directory_id, deleted_at, name, extension, virtual_file_id
+설명: 폴더 내 파일들을 이름(name) 순으로 보여줄 때 사용 인덱스명:idx_virtual_directories_parent_updated
+컬럼: file_permission_id, parent_directory_id, deleted_at, updated_at, directory_id
+설명: 부모 폴더 내 디렉터리들을 최근 수정된 순서(updated_at)로 보여줄 때 사용 인덱스명:idx_virtual_files_directory_updated
+컬럼: directory_id, deleted_at, updated_at, extension, virtual_file_id
+설명: 폴더 내 파일들을 최근 수정된 순서(updated_at)로 보여줄 때 사용 인덱스명:idx_real_files_hash_size
+컬럼: file_hash, file_size
+설명: 업로드 전 중복 여부를 판단 인덱스명:idx_share_directories_link_parent
+컬럼: share_link_id, deleted_at, parent_directory_id, name, share_directory_id
+설명: 공유 링크 내부 구조를 탐색할 때 사용 인덱스명:idx_share_files_directory_name
+컬럼: share_directory_id, deleted_at, name, share_file_id
+설명: 공유된 폴더 내부의 파일을 이름순으로 조회할 때 사용 인덱스명:idx_capacity_allocations_active
+컬럼: receiver_permission_id, deleted_at, expiration_date, allocated_size
+설명: 만료되지 않은(expiration_date) 활성 할당량을 빠르게 합산(active)하기 위한 인덱스 인덱스명:idx_upload_parts_session_order
+컬럼: session_id, part_number
+설명: 세션별 파츠를 순서(order)대로 정렬하여 병합하기 위한 인덱스 인덱스명:idx_batch_job_queues_polling
+컬럼: status, next_run_at,
+설명: 워커(Worker)가 상태(status)를 기준으로 다음 작업을 가져올 때 (next_run_at) 사용
+]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v003/03.-인덱스-상세-설계서1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V003/03. 인덱스 상세 설계서1.md</guid><pubDate>Thu, 05 Feb 2026 08:45:42 GMT</pubDate></item><item><title><![CDATA[auditor연동 구현]]></title><description><![CDATA[ 위치 AuditorAwareImpl.getCurrentAuditor() 현황 및 목적 (Context) 엔티티의 created_by, updated_by 요소에 값이 없어 데이터베이스 테스트 불가능
+모든 값을 0으로 들어가도록 하였음
+로그인 구현 이후 로그인한 유저id가 들어갈 수 있도록 구현 ]]></description><link>개인-파일-공유-서버(진행-중)/03.-구현/01.-todo/auditor연동-구현.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/03. 구현/01. TODO/auditor연동 구현.md</guid><pubDate>Fri, 30 Jan 2026 10:11:28 GMT</pubDate></item><item><title><![CDATA[NAS Server 프로젝트 진행 상황]]></title><description><![CDATA[
+Repository: <a data-tooltip-position="top" aria-label="https://github.com/SuperNoobChallenge/nas-server" rel="noopener nofollow" class="external-link is-unresolved" href="https://github.com/SuperNoobChallenge/nas-server" target="_self">GitHub</a>
+저사양 환경(개인 PC/홈서버/라즈베리파이)에서 동작하는 경량 NAS/클라우드 서버를 개발하고 있습니다.
+요구사항 분석 및 DB 설계(ERD/물리 모델/인덱스) 완료
+사용자 인증/인가 구현(세션 로그인/로그아웃, 보안 경계 적용)
+초대 기반 회원가입 및 공유 초대 링크 플로우 구현
+용량 변경을 배치 큐 기반으로 처리하도록 아키텍처 적용
+단위 테스트 + 통합 테스트 기반으로 주요 흐름 검증 이메일 링크 기반 비밀번호 재설정
+관리자 복구 기능(부팅 시)
+파일/디렉터리 업로드·조회·이동·삭제 API 본 구현
+그룹 관리 기능 구현
+]]></description><link>개인-파일-공유-서버(진행-중)/nas-server-프로젝트-진행-상황.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/NAS Server 프로젝트 진행 상황.md</guid><pubDate>Fri, 13 Feb 2026 05:27:19 GMT</pubDate></item><item><title><![CDATA[김영현  신입 개발자 포트폴리오]]></title><description><![CDATA[
+이름: 김영현
+생년월일: 2000년 05월 05일
+이메일: <a data-tooltip-position="top" aria-label="mailto:kimyh9181@naver.com" rel="noopener nofollow" class="external-link is-unresolved" href="mailto:kimyh9181@naver.com" target="_self">kimyh9181@naver.com</a>
+<br>GitHub: <a rel="noopener nofollow" class="external-link is-unresolved" href="https://github.com/SuperNoobChallenge" target="_self">https://github.com/SuperNoobChallenge</a>
+<br>Website: <a rel="noopener nofollow" class="external-link is-unresolved" href="https://snc-study.netlify.app/" target="_self">https://snc-study.netlify.app/</a>
+시스템의 흐름을 파악하고 데이터의 무결성을 지키는 것을 최우선 가치로 삼습니다.
+IoT 센서 데이터의 수집·가공·저장 전 과정을 구축하고, 단계별 정제 로직을 설계하여 시스템 신뢰성을 확보했습니다.
+불안정한 원시 데이터를 정규화하여 이미지 분류 모델의 정확도를 85%까지 개선했습니다.
+이처럼 문제를 기술적으로 정의하고 해결하며 실무적인 문제 해결력을 키워왔습니다.
+문제의 근본 원인을 끝까지 추적하고, 명확한 기준에 근거해 설계하는 개발자가 되고자 합니다.
+Java / Spring Boot 객체 지향 프로그래밍(OOP)에 대한 기본 이해
+Spring Boot 기반 웹 애플리케이션 및 간단한 REST API 구현 경험 Database / ORM (SQL, JPA, JPQL) 기본적인 CRUD 쿼리 및 Join 작성 가능
+엔티티 매핑과 연관관계 설정 경험
+fetch join을 활용한 간단한 쿼리 최적화 경험 Python NumPy, OpenCV 등 라이브러리를 활용한 데이터 처리 경험
+PCCP Python 3 Lv.3 자격 보유 <br><a class="internal-link" data-href="./인터넷 연결 스마트화분" href="인터넷-연결-스마트화분.html" target="_self" rel="noopener nofollow"><strong></strong></a>1. 인터넷 연결 스마트화분
+기존 블루투스 기반 스마트 화분은 근거리에서만 데이터 확인이 가능하고, 센서 데이터의 지속적인 저장·분석이 어렵다는 한계가 있었습니다. 이를 해결하기 위해 ESP32와 Wi-Fi를 기반으로 센서 데이터를 서버(Firebase Firestore)에 수집·저장하고, 사용자가 모바일 앱을 통해 언제 어디서나 식물 상태를 조회할 수 있는 IoT 원격 모니터링 시스템을 구현했습니다.
+나의 역할 및 기여: 하드웨어(HW): ESP32 기반 센서 데이터 수집 구조 설계 및 구현
+센서 노이즈와 순간적인 값 튐 현상을 고려해, 전송 전 단계에서 데이터 전처리 로직을 적용하여 데이터 신뢰성을 확보
+Deep Sleep 모드를 적용해 배터리 기반 환경에서 전력 소모 최소화
+초기 Wi-Fi 설정 문제를 해결하기 위해 Bluetooth 기반 네트워크 설정 방식 설계 애플리케이션 / 백엔드 연동: Firestore를 사용해 센서 데이터 저장 구조 설계
+디바이스 ID 기준으로 데이터를 분리하고, 시간 단위 조회 및 히스토리 분석이 가능하도록 컬렉션 구조를 설계
+모바일 앱에서 실시간으로 식물 상태를 조회할 수 있도록 데이터 연동 사용 기술: ESP32 (C++), Firebase (Firestore, Authentication), Android Studio (Kotlin), Sensors (DHT22, Soil Moisture, etc.).
+결과/성과: 원격 식물 상태 모니터링이 가능한 IoT 시스템 프로토타입을 완성하고 실제 동작을 검증했으며, 제한된 자원 환경에서 안정적인 데이터 수집·전송 구조를 설계한 경험을 확보함. <br>Link: <a data-tooltip-position="top" aria-label="https://github.com/SuperNoobChallenge/smartpot_HW" rel="noopener nofollow" class="external-link is-unresolved" href="https://github.com/SuperNoobChallenge/smartpot_HW" target="_self">GitHub Repository(HW)</a>, <a data-tooltip-position="top" aria-label="https://github.com/SuperNoobChallenge/smartpot" rel="noopener nofollow" class="external-link is-unresolved" href="https://github.com/SuperNoobChallenge/smartpot" target="_self">GitHub Repository(APP)</a>, <a data-tooltip-position="top" aria-label="https://youtu.be/H9EMrdDH0d8" rel="noopener nofollow" class="external-link is-unresolved" href="https://youtu.be/H9EMrdDH0d8" target="_self">YouTube Demo</a>, <a class="internal-link" data-href="./인터넷 연결 스마트화분" href="인터넷-연결-스마트화분.html" target="_self" rel="noopener nofollow">Details</a>
+<br><a class="internal-link" data-href="./자세 추정 모델 기반 성인-아동 분류" href="자세-추정-모델-기반-성인-아동-분류.html" target="_self" rel="noopener nofollow"><strong></strong></a>2. 자세 추정 모델 기반 성인-아동 분류
+CCTV 환경에서 사람의 일부가 가려질 경우 기존 신체 비율 기반 분류 방식은 정확도가 급격히 저하되는 문제가 있었습니다. 이 문제를 해결하기 위해, 이미지에서 직접적인 픽셀 정보 대신 자세 추정(Pose Estimation) 모델로 추출한 관절 기반 특징 데이터를 정의하고, 이를 활용해 성인과 아동을 분류하는 시스템을 설계·구현했습니다.
+나의 역할 및 기여: 학습 성능 저하의 원인을 모델 구조보다 입력 데이터의 불안정성으로 판단하고, 데이터 기준 재설계 주도
+다양한 가림 환경을 가정한 데이터 증강을 통해 실제 CCTV 환경을 반영한 학습 데이터 구성
+Pose Estimation 모델을 활용해 17개 주요 관절 좌표 및 Bounding Box 추출
+사람의 위치·크기에 따른 편차를 줄이기 위해 Bounding Box 기반 Min-Max Scaling 적용
+정규화된 관절 좌표를 기반으로 관절 간 거리 특징을 생성하여 47차원 입력 벡터 설계
+MLP 모델(3개 은닉층, ReLU, Dropout) 설계 및 하이퍼파라미터 튜닝을 통해 학습 과정 주도 사용 기술: Python, Pose Estimation (YOLOv8-pose), NumPy, MLP (PyTorch).
+결과/성과: 가려진 이미지와 원본 이미지가 혼합된 테스트 데이터셋 기준 분류 정확도 85% 달성. 단순 모델 변경이 아닌 입력 데이터의 기준과 표현 방식을 개선함으로써 성능을 유의미하게 향상할 수 있음을 검증했습니다. <br>Link: <a class="internal-link" data-href="./자세 추정 모델 기반 성인-아동 분류" href="자세-추정-모델-기반-성인-아동-분류.html" target="_self" rel="noopener nofollow">Details</a> 컴퓨터공학과 학부 연구생 (목원대학교) 기간: 2022.04 ~ 2024.06 (약 2년 2개월)
+주요 활동: 인공지능 모델 학습 및 데이터 분석
+연구 보고서 작성 대전-세종-충남(DSC) CNU SW아카데미 기간: 2024.07 ~ 2024.12 (약 5개월)
+과정: 웹프론트엔드 과정
+주요 활동: 총 680시간 교육 과정 이수 목원대학교 컴퓨터공학과 (학사) 졸업: 2025년 02월
+학점: 4.35 / 4.5 정보처리기사: 2024.06.18 취득
+PCCP Python3 Lv.3: 2024.11.23 취득 우수상 - 2024학년도 전기 학위수여식 (수여자: 목원대학교 총장, 2025.02.20)
+]]></description><link>김영현-신입-개발자-포트폴리오.html</link><guid isPermaLink="false">김영현  신입 개발자 포트폴리오.md</guid><pubDate>Thu, 12 Feb 2026 09:51:10 GMT</pubDate></item><item><title><![CDATA[자세 추정 모델 기반 성인-아동 분류]]></title><description><![CDATA[활동기간: 2023년 6월 1일 → 2024년 6월 1일
+한 줄 설명: 자세 추정과 다층 퍼셉트론을 이용한 성인-아동 구분 프로젝트기존 신체 비율 기반 성인-아동 분류 방식이 가림 환경에 취약하다는 문제를 해결하기 위해, 자세 추정 모델로 추출한 관절 정보를 정규화하고 관절 간 거리 특징을 재설계하여 분류 모델을 구현했습니다.
+데이터 기준을 재정의한 결과, 다양한 가림 환경이 포함된 테스트 데이터셋에서 85% 정확도를 달성했습니다.CCTV 환경에서는 촬영 각도나 가림 현상으로 인해 사람의 전신이 확보되지 않는 경우가 많아 기존의 신체 비율 기반 성인-아동 분류 방식은 정확도가 크게 저하되는 문제가 있었습니다.
+이 프로젝트에서는 모델 구조를 복잡하게 변경하기보다 사람의 자세 정보를 기반으로 한 안정적인 특징 표현 방식을 새로 정의하는 데 초점을 두었습니다.
+자세 추정(Pose Estimation) 모델을 활용해 관절 좌표를 추출하고 사람의 위치·크기 차이에 영향을 받지 않도록 정규화 및 관절 간 거리 정보를 특징으로 설계하여 부분 가림 환경에서도 동작 가능한 분류 모델을 구현했습니다.
+<img alt="제목_없는_다이어그램.drawio_(1).png" src="media/제목_없는_다이어그램.drawio_(1).png" target="_self"> 데이터 수집 및 가림 환경 대응 크롬 이미지 검색을 통해 성인/아동 전신 이미지 521장 수집
+실제 CCTV 환경을 고려해 상·하단 가림, 임의 가림 등 4종류의 데이터 증강 적용
+학습/검증/테스트 데이터를 60:30:10 비율로 분리하여 과적합을 방지<br>
+<img alt="제목_없는_다이어그램.drawio.png" src="media/제목_없는_다이어그램.drawio.png" target="_self" style="width: 375px; max-width: 100%;"> 특징 설계 및 데이터 정규화 Pose Estimation 모델을 활용해 17개 주요 관절 및 얼굴 좌표, Bounding Box 추출
+촬영 거리·사람 크기에 따른 편차를 줄이기 위해 Bounding Box 기준 Min-Max 정규화 적용
+관절 간 거리 정보를 추가하여 자세 변화에 강건한 47차원 특징 벡터 설계<br>
+<img alt="minmaxexam.drawio.png" src="media/minmaxexam.drawio.png" target="_self" style="width: 375px; max-width: 100%;"><br>
+<img alt="inputdata.png" src="media/inputdata.png" target="_self" style="width: 375px; max-width: 100%;"> 모델 학습 47차원 특징 벡터를 입력으로 하는 MLP 모델 설계
+ReLU, Dropout을 적용한 3개 은닉층 구조로 일반화 성능 확보
+AdamW 옵티마이저 기반 하이퍼파라미터 튜닝을 통해 성능 개선 다양한 가림 환경이 포함된 테스트 데이터셋 기준 분류 정확도 85% 달성
+전신 정보가 불완전한 상황에서도 기존 신체 비율 기반 방식 대비 안정적인 성능 확인
+모델 구조보다 데이터 표현 방식이 성능에 더 큰 영향을 미칠 수 있음을 검증 모델 성능 저하의 원인이 반드시 알고리즘에 있지는 않으며 데이터의 표현 방식과 기준 설계가 성능을 좌우할 수 있음을 경험
+불안정한 원시 데이터를 그대로 사용하는 대신 서비스 환경을 고려해 의미 있는 특징으로 가공하는 과정의 중요성을 이해
+]]></description><link>자세-추정-모델-기반-성인-아동-분류.html</link><guid isPermaLink="false">자세 추정 모델 기반 성인-아동 분류.md</guid><pubDate>Wed, 28 Jan 2026 13:49:10 GMT</pubDate><enclosure url="media/제목_없는_다이어그램.drawio_(1).png" length="0" type="image/png"/><content:encoded>&lt;figure&gt;&lt;img src="media/제목_없는_다이어그램.drawio_(1).png"&gt;&lt;/figure&gt;</content:encoded></item><item><title><![CDATA[인터넷 연결 스마트화분]]></title><description><![CDATA[
+활동기간: 2024년 7월 1일 → 2024년 12월 1일
+한 줄 설명: 멀리 떨어져 있어도 화분 상태를 확인할 수 있는 스마트화분
+깃허브(HW): <a rel="noopener nofollow" class="external-link is-unresolved" href="https://github.com/SuperNoobChallenge/smartpot_HW" target="_self">https://github.com/SuperNoobChallenge/smartpot_HW</a>
+<br>깃허브(애플리케이션): <a rel="noopener nofollow" class="external-link is-unresolved" href="https://github.com/SuperNoobChallenge/smartpot" target="_self">https://github.com/SuperNoobChallenge/smartpot</a> ESP32 + Wi-Fi 기반 IoT 화분 백엔드 설계 및 구현
+센서 노이즈를 고려한 데이터 전처리 및 안정화 로직 적용
+Firestore REST API를 이용한 서버리스 데이터 수집·저장 구조 설계
+Deep Sleep 기반 저전력 주기 수집 시스템 구현
+식물을 처음 키우는 사용자는 수분 관리와 온도 조절에 어려움을 겪으며, 이를 보완하기 위해 온도·습도·토양 수분을 센서로 측정하는 스마트 화분이 활용되고 있습니다.
+그러나 기존 스마트 화분은 블루투스 기반으로 동작하여, 화분 근처에서만 상태를 확인할 수 있고 센서 데이터의 지속적인 저장과 분석이 어렵다는 한계가 있었습니다.
+본 프로젝트에서는 이러한 한계를 해결하기 위해 스마트 화분을 Wi-Fi로 연결하고, 센서 데이터를 서버에 저장하여 사용자가 언제 어디서나 화분 상태를 확인할 수 있는 원격 모니터링 시스템을 구현했습니다.<br>
+<a data-tooltip-position="top" aria-label="https://youtu.be/H9EMrdDH0d8" rel="noopener nofollow" class="external-link is-unresolved" href="https://youtu.be/H9EMrdDH0d8" target="_self">YouTube Demo</a><br>
+<img alt="KakaoTalk_20250316_031626497 1.png" src="media/kakaotalk_20250316_031626497-1.png" target="_self" style="width: 225px; max-width: 100%;">
+ESP32 기반으로 온습도(DHT22), 토양 습도, 배터리 전압 데이터를 수집하는 시스템 설계
+센서 특성상 순간적인 노이즈와 값 튐 현상이 발생하여, 이동 평균 필터와 표준편차 기반 이상값 제거 로직을 적용해 데이터 신뢰성 확보
+Wi-Fi 환경에서 Firestore REST API를 활용해 센서 데이터를 직접 전송하고, 네트워크 장애와 전력 제약을 고려한 데이터 수집·전송 구조를 구현
+배터리 기반 환경을 고려해 Deep Sleep 모드를 적용하고, 10분 주기 데이터 수집/전송 구조로 전력 소모 최소화<br>
+<img alt="image.png" src="media/image.png" target="_self" style="width: 475px; max-width: 100%;"> 디바이스 MAC 주소를 기준으로 데이터 분리 및 조회 구조 설계
+실시간 데이터(nowdata)와 일별 평균 데이터(YYYYMMDD)를 분리 저장하여 최신 상태 조회와 히스토리 조회를 처리<br>
+<img alt="image 1.png" src="media/image-1.png" target="_self" style="width: 300px; max-width: 100%;"> Kakao 로그인 기반 사용자 식별 후 Firestore 사용자 문서 조회
+사용자 소유 디바이스 목록(MAC 주소)을 기준으로 센서 데이터 연동
+Firestore Snapshot Listener를 활용해 센서 데이터 변경 시 UI를 실시간으로 갱신 ESP32와 스마트폰을 블루투스 페어링하여 진행<br>
+<img alt="image 2.png" src="media/image-2.png" target="_self"> 제한된 자원 환경(임베디드)에서도 데이터 신뢰성을 확보하는 설계의 중요성
+제한된 자원 환경에서도 외부 API와 연동하여 데이터를 안정적으로 수집·저장하는 구조를 설계하며, 데이터 흐름 관점에서 백엔드 역할을 이해
+하드웨어, 데이터, 클라이언트가 연결되는 전체 시스템 흐름 이해
+]]></description><link>인터넷-연결-스마트화분.html</link><guid isPermaLink="false">인터넷 연결 스마트화분.md</guid><pubDate>Wed, 28 Jan 2026 13:49:05 GMT</pubDate><enclosure url="." length="0" type="false"/><content:encoded>&lt;figure&gt;&lt;img src="."&gt;&lt;/figure&gt;</content:encoded></item><item><title><![CDATA[02. 요구사항 정의서]]></title><description><![CDATA[본 요구사항 정의서는 개인이 소유한 최소한의 컴퓨팅 자원에서 구동 가능한 경량 클라우드/NAS 서비스의 기능적·비기능적 요구사항을 정의한다. 본 문서는 논리적 설계(ERD)와 직접적으로 연계되며, 단순 기능 나열이 아닌 시스템 제약 조건을 함께 기술하는 것을 목적으로 한다.
+시스템은 실제 저장되는 파일과 사용자에게 노출되는 파일을 분리하여 관리해야 한다.
+하나의 실제 파일은 여러 개의 가상 파일로 참조될 수 있어야 한다.
+파일의 이름, 위치, 권한은 가상 파일의 책임으로 관리되어야 한다.
+실제 파일은 모든 가상 파일 참조가 제거된 이후에만 제거 상태로 전환되어야 한다. 본 시스템에서 파일 및 디렉터리의 소유 주체는 사용자가 아니라 권한 단위(파일 권한 키)이다.
+사용자와 그룹은 파일을 직접 소유하지 않으며, 권한 키를 통해 접근 권한만을 가진다.
+개인 권한과 그룹 권한은 동일한 권한 모델을 사용해야 한다. 시스템은 단순 읽기/쓰기 권한이 아닌 레벨 기반 접근 제어를 사용해야 한다.
+사용자는 자신의 권한 레벨 이상인 파일 및 디렉터리만 인지할 수 있다.
+권한 레벨이 부족한 경우 해당 자원의 존재 여부조차 확인할 수 없어야 한다.
+디렉터리의 권한은 하위 요소에 영향을 미쳐야 하며, 이동 시 권한 재조정이 가능해야 한다. 기존 환경(PC, 서버, 라즈베리파이 등)에 손쉽게 설치 및 실행 가능해야 한다.
+클라우드 서비스와 유사한 사용자 경험을 제공해야 한다.
+웹 UI 기반 사용을 기본으로 하되, API 기반 접근도 고려해야 한다.
+로컬 파일 시스템 또는 객체 스토리지로 확장 가능해야 한다. 사용자는 파일을 업로드할 수 있어야 한다. 다중 파일 업로드를 지원해야 한다.
+디렉터리 단위 업로드를 지원해야 한다. 사용자는 디렉터리를 생성할 수 있어야 한다. 사용자는 파일 및 디렉터리를 이동할 수 있어야 한다.
+사용자는 파일 및 디렉터리의 이름을 변경할 수 있어야 한다.
+모든 수정 작업은 인가된 권한 레벨 내에서만 가능해야 한다. 파일 및 디렉터리 삭제는 논리적 삭제 방식으로 처리되어야 한다.
+공유 관계 또는 참조 관계가 존재하는 경우 즉시 삭제되지 않을 수 있어야 한다.
+삭제 전 사용자에게 영향을 사전 고지할 수 있어야 한다. 사용자는 현재 위치한 디렉터리 내 요소를 조회할 수 있어야 한다.
+조회 시 다음 기준으로 정렬할 수 있어야 한다. 이름
+수정일
+용량 사용자는 이름 기반 검색을 할 수 있어야 한다. 파일 확장자를 포함한 검색 결과를 제공해야 한다. 사용자는 회원 가입을 할 수 있어야 한다. ID + 비밀번호 + 이메일 사용자는 ID와 비밀번호로 로그인할 수 있어야 한다.
+로그인 상태는 캐시 기반으로 유지될 수 있어야 한다.
+사용자는 로그아웃 시 인증 캐시가 제거되어야 한다. 사용자는 등록한 이메일을 이용해 비밀번호를 변경할 수 있어야 한다.
+비밀번호 변경은 이메일 링크 기반으로 수행되어야 한다. 관리자 비밀번호를 분실한 경우에도 복구할 수 있어야 한다.
+시스템은 부팅 시 특정 파일을 통해 관리자 비밀번호 재지정 여부를 판단해야 한다. 사용자는 그룹을 생성할 수 있으며, 생성자는 그룹장이 된다.
+그룹장은 그룹 구성원의 권한을 관리할 수 있어야 한다.
+권한이 있는 사용자는 그룹 초대 링크를 생성할 수 있어야 한다. 조회 권한: 파일 및 디렉터리 조회 가능
+수정 권한: 파일 및 디렉터리 삭제, 이동 가능 사용자는 파일 또는 디렉터리를 외부에 공유할 수 있어야 한다.
+공유는 링크 기반으로 이루어져야 한다.
+공유 링크에는 다음 조건을 설정할 수 있어야 한다. 유효 기간
+접근 비밀번호
+사용 가능 횟수 제한 이미지 파일 미리보기를 제공할 수 있다.
+동영상 파일 스트리밍 재생을 지원할 수 있다. 시스템은 저사양 환경(라즈베리파이 4)에서도 안정적으로 동작해야 한다.
+대용량 파일 업로드 중에도 서비스가 중단되지 않아야 한다.
+일부 작업은 비동기 또는 배치 작업으로 처리해야 한다.
+데이터 정합성을 보장해야 한다.
+데이터베이스 및 스토리지 시스템 교체가 가능하도록 설계되어야 한다. 객체 스토리지는 MinIO 또는 S3 호환 스토리지를 사용할 수 있으나, 특정 제품에 종속되지 않아야 한다.
+초기 모델에서는 로컬 파일 시스템을 사용하되, 후기 모델에서 객체 스토리지로 전환 가능해야 한다.
+DB는 MySQL과 MariaDB 간 전환을 고려하여 설계되어야 한다.
+]]></description><link>개인-파일-공유-서버(진행-중)/01.-요구사항-분석/02.-요구사항-정의서.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/01. 요구사항 분석/02. 요구사항 정의서.md</guid><pubDate>Mon, 19 Jan 2026 11:59:01 GMT</pubDate></item><item><title><![CDATA[01. 개요]]></title><description><![CDATA[현재 상용 클라우드 및 NAS 서비스는 다음과 같은 한계를 가진다.
+개인 사용자 기준에서 가격 대비 효율이 낮음
+민감하거나 중요한 파일을 완전히 신뢰하기 어려운 외부 저장소에 의존해야 함
+네트워크 환경에 따라 체감 속도가 느림 로컬 환경과 비교하면 성능 비교 자체가 무의미할 정도의 차이가 발생 이에 따라, 개인이 소유한 최소한의 컴퓨팅 자원만으로 구동 가능한 경량 클라우드 서비스를 개발하여 합리적인 비용, 빠른 접근 속도, 데이터 주권 확보를 동시에 달성하는 것을 목표로 한다.
+개인 환경(PC, 서버, 라즈베리파이 등)에서 쉽게 구축 가능한 NAS/클라우드 서비스 제공
+상용 클라우드와 유사한 사용자 경험(UX) 제공
+웹 환경뿐 아니라 API 기반 접근도 고려한 범용성 확보
+저사양 환경에서도 안정적으로 동작하는 서버 아키텍처 설계 개인 사용자 (홈 서버, 개인 NAS 운영자)
+소규모 팀 또는 가족 단위 사용자
+데이터 주권과 비용 효율을 중시하는 사용자 Backend: Spring Framework
+Database: MySQL
+Storage: 로컬 파일 시스템
+목적:
+핵심 기능 검증
+파일 관리 및 권한 모델의 안정성 확보 Backend: Spring Framework
+Database: MariaDB
+Storage: 객체 스토리지 (MinIO 또는 대체 객체 스토리지) ⚠ MinIO 관련 고려 사항 Docker 이미지 배포 정책 변경
+상업화 이슈
+장기적으로 다른 S3 호환 객체 스토리지로 교체 가능하도록 추상화 필요 MySQL → MariaDB 전환을 고려하여 DB 의존성을 최소화한 설계를 적용한다.
+Repository / DAO 계층에 인터페이스 적극 활용
+SQL 문법 및 DB 고유 기능 사용 최소화 라즈베리파이 OS 기본 DB 옵션
+MySQL 대비 우수한 자원 관리 능력 효율적인 스레드 풀링
+향상된 쿼리 옵티마이저
+다양한 스토리지 엔진 지원 제한된 자원 환경(라즈베리파이 4)에서 안정적인 서비스 운영 가능
+]]></description><link>개인-파일-공유-서버(진행-중)/01.-요구사항-분석/01.-개요.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/01. 요구사항 분석/01. 개요.md</guid><pubDate>Mon, 19 Jan 2026 11:52:36 GMT</pubDate></item><item><title><![CDATA[02. 논리적 설계1]]></title><description><![CDATA[<img alt="Pasted image 20260109160928.png" src="media/pasted-image-20260109160928.png" target="_self">
+컬럼 정의 생성일 : DATETIME, NOT NULL, 생성된 시간.
+수정일 : DATETIME, NOT NULL, 수정된 시간.
+생성자 : BIGINT, FK, NOT NULL, 생성한 유저id (유저 테이블).
+수정자 : BIGINT, FK, NOT NULL, 수정한 유저id (유저 테이블). 설계 노트 생성일과 수정일은 데이터베이스의 기능을 사용해 자동으로 반영되도록 한다.
+생성자와 수정자는 애플리케이션 설정으로 자동화한다. 기본 키 : 유저id (대리 키)
+외래 키 : 파일 권한 키id (파일 권한 키 테이블)
+초대한 유저 (유저 테이블) 컬럼 정의 유저id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값.
+초대한 유저 : BIGINT, FK
+해당 유저를 초대한 사람. 관리자(root)에 의해 초대된 경우 NULL 값을 가짐.
+로그인id : UQ, NOT NULL,
+사용자가 로그인 시 사용하는 아이디.
+비밀번호 : VARCHAR(255), NOT NULL,
+해시화해 저장될 비밀번호.
+이메일 : VARCHAR(50), UQ, NOT NULL,
+비밀번호 변경 기능에 사용될 이메일 주소.
+비활성화 시기 : DATETIME
+유저가 비활성화된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 로그인id, 이메일은 시스템에서 고유해야 하는 자연 키 후보들이다. UNIQUE 제약조건을 걸어 데이터베이스 레벨에서 중복을 방지하였다.
+초대한 유저는 자기 자신을 참조하는 자기참조 역할을 수행한다. 최초의 관리자(Root)이거나 시스템에 의해 자동 생성된 경우에만 NULL 값을 가지며, 그 외에는 자신을 초대한 유저의 ID를 저장하여 초대 계층을 유지한다.
+파일 권한 키id 는 해당 유저가 소유하는 파일의 접근키 값을 의미한다. 유저는 파일을 소유하는 것이 아니라 접근 권한을 가진다.
+비활성화 시기 는 유저의 활성화 상태를 저장한다. 기본값으로 NULL을 저장하고 비활성화되는 순간의 날짜 및 시간을 저장한다. 기본 키 : 권한id (대리 키)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 권한id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+유저id : BIGINT, FK, NOT NULL
+해당 권한이 어떤 유저의 권한인지 나타내는 값.
+사람 초대 권한 : BOOLEAN, NOT NULL
+유저가 새로운 유저를 초대할 수 있는지 나타내는 값.
+파일 공유 권한 : BOOLEAN, NOT NULL
+유저가 파일 공유 링크를 만들어 파일을 공유할 수 있는지 나타는 값.
+개인 파일 권한 : BOOLEAN, NOT NULL
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값.
+그룹 생성 권한 : BOOLEAN, NOT NULL
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값. 설계 노트 암튼 설명스 기본 키 : 파일 권한 키id (대리 키)
+컬럼 정의 파일 권한 키id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+타입 : VARCHAR(10), NOT NULL,
+권한의 소유가 어떤 타입인지 저장. (user, group)
+할당된 저장 용량 : BIGINT, NOT NULL,
+권한에 저장할 수 있는 가상 파일의 총 저장 용량. (바이트 단위)
+부모 권한 키id: BIGINT, FK
+권한에 할당된 저장 용량을 나누어 준(배정해 준) 파일 권한 키 id.
+첫 사용자의 경우 NULL 을 가진다.
+비활성화 시기 : DATETIME
+파일 권한 키가 비활성화된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 암튼 설명스 기본 키 : 가상 디렉터리id (대리 키)
+외래 키 :
+부모 디렉터리id (가상 디렉터리 테이블)
+파일 권한 키id (가상 요소 테이블)
+컬럼 정의 가상 디렉터리id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키 id : BIGINT, FK, NOT NULL
+가상 디렉터리가 어떤 권한에 속했는지 저장.
+부모 디렉터리id : BIGINT, FK,
+해당 디렉터리의 부모 디렉터리id.
+null 인 경우 해당 권한의 최상위 디렉터리(root).
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 가상 디렉터리의 이름.
+크기 : BIGINT, NOT NULL
+해당 디렉터리 하위에 있는 파일의 총 용량
+디렉터리 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 디렉터리 개수.
+파일 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 파일 개수.
+현재 레벨 : INT, NOT NULL
+해당 디렉터리의 부모 개수
+제거 시기 : DATETIME
+가상 디렉터리가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 암튼 설명스 기본 키 : 가상 파일id (대리 키)
+외래 키 : 가상 요소id (가상 요소 테이블)
+실제 파일id (실제 파일 테이블) 컬럼 정의 가상 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+가상 디렉터리id : BIGINT, FK, NOT NULL
+가상 파일이 속해 있는 가상 디렉터리.
+실제 파일id : BIGINT, FK, NOT NULL
+가상 파일이 나타내는 실제 파일id 값.
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 가상 파일의 이름.
+파일 크기 : BIGINT, NOT NULL,
+가상 파일이 나타내는 실제 파일의 저장 용량. (바이트 단위)
+파일 확장자 : VARCHAR(50), NOT NULL
+가상 파일의 확장자.
+제거 시기 : DATETIME
+가상 파일이 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 암튼 설명스 기본 키 : 실제 파일id (대리 키)
+컬럼 정의 실제 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+저장된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 실제로 파일이 저장된 이름.
+제거 시기 : DATETIME
+해당 요소가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 암튼 설명스 기본 키 : 공유링크id (대리 키)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 공유 링크id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+유저id : BIGINT, FK
+공유 링크를 생성한 유저가 누구인지 저장.
+공유된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 어떤 공유 링크로 접속했는지 나타냄.
+링크 타입 : VARCHAR(15), NOT NULL,
+공유된 링크가 어떤 타입인지 저장. (user_invite, file_share, group_invite)
+공유 기간 : DATETIME, NOT NULL,
+공유할 수 있는 기간
+암호 : VARCHAR(255)
+해시화해 저장될 비밀번호.
+NULL 인 경우 비밀번호가 없다고 가정.
+사용 가능 횟수 : INT, NOT NULL
+공유 링크가 사용될 수 있는 총 횟수
+사용 횟수 : INT, NOT NULL
+공유 링크기 지금까지 사용된 횟수
+이름 : VARCHAR(50), NOT NULL,
+해당 공유 링크의 명칭
+활성 상태 : DATETIME
+그룹이 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐.
+공유 기간, 사람 초대 테이블의 초대 인원, 파일 공유 테이블의 열람 가능 횟수 조건을 체크해서 값 반영 설계 노트 공유된 UUID는 시스템상 유일해야 하는 값이며, 다른 값으로 유츄할 수 없어야 한다. 랜덤한 문자열을 생성해 유추할 수 없도록 하였다.
+링크 타입은 해당 링크가 어떤 타입인지 나타내는 값이다. 나타내는 값으로는 유저 초대, 파일 공유 2가지 뿐이라 BOOLEAN 타입으로 해도 되었으나, 앞으로의 확장성을 고려해 ENUM 타입으로 지정하였다.
+활성 상태는 해당 링크가 사용할 수 있는 상태인지 나타내는 값이다. 이 값은 공유 기간, 사람 초대 테이블의 남은 초대 인원, 파일 공유 테이블의 열람 가능 횟수 3가지 값에 따라 변하도록 설계하였으며, 공유링크의 주인(유저id)이 지정할 수도 있다.
+-- 수정스 기본 키 : 공유 디렉터리id (대리 키)
+외래 키 :
+공유 링크 id (공유 링크 테이블)
+부모 디렉터리 id (공유 디렉터리 테이블)
+컬럼 정의 공유 디렉터리 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유 링크 id : BIGINT, FK, NOT NULL
+공유 디렉터리가 어떤 공유 링크에 속해있는지 저장.
+부모 디렉터리id : BIGINT, FK, NOT NULL
+해당 공유 디렉터리의 부모 디렉터리id.
+null 인 경우 공유 링크의 최상위 디렉터리(root).
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 공유 디렉터리의 이름.
+현재 레벨 : INT, NOT NULL
+해당 디렉터리의 부모 개수
+해당 디렉터리 하위에 있는 파일의 총 용량
+제거 시기 : DATETIME
+공유 디렉터리가 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공 기본 키 : 공유 디렉터리 id (대리 키)
+외래 키 : 공유 링크 id (공유 링크 테이블)
+컬럼 정의 공유 파일 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유 디렉터리 id : BIGINT, FK, NOT NULL
+공유 파일이 속해 있는 공유 디렉터리.
+가상 파일 id : BIGINT, FK, NOT NULL
+공유 파일이 나타내는 가상 파일id 값.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 공유 파일의 이름.
+확장자 : VARCHAR(50), NOT NULL
+공유 파일의 확장자.
+제거 시기 : DATETIME
+공유 파일이이 제거된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공 기본 키 : 그룹 초대 id (대리 키)
+외래 키 :
+공유 링크 id (공유 링크 테이블)
+그룹 id (그룹 테이블)
+컬럼 정의 그룹 초대 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유 링크 id : BIGINT, FK, NOT NULL
+어떤 공유 링크인지 지정하는 값.
+그룹 id : BIGINT, FK, NOT NULL
+어떤 그룹 초대 링크인지 지정하는 값. 설계 노트 공 기본 키 : 그룹 id (대리 키)
+외래 키 :
+파일 권한 키 id (파일 권한 키 테이블)
+소유자id (유저 테이블)
+컬럼 정의 그룹 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 권한 키 id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값.
+그룹 이름 : VARCHAR(50), NOT NULL
+그룹의 이름.
+소유자id : BIGINT, FK, NOT NULL
+그룹의 소유자인 유저.
+가입 가능 인원수 : INT, NOT NULL
+해당 그룹에 가입되어 있는 인원수 한계
+현재 가입 인원수 : INT, NOT NULL
+해당 그룹에 가입되어 있는 인원수
+비활성화 시기 : DATETIME
+그룹이 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공 기본 키 : 그룹 유저 id (대리 키)
+외래 키 :
+그룹 id (그룹 테이블)
+유저 id (유저 테이블)
+컬럼 정의 그룹 유저 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+그룹 id : BIGINT, FK
+그룹 유저가 속해 있는 그룹.
+유저 id : BIGINT, FK
+그룹 유저가 어떤 유저인지 지정.
+읽기 가능 레벨 : INT, NOT NULL
+유저가 확인할 수 있는 파일 레벨.
+쓰기 가능 레벨 : INT, NOT NULL
+유저가 수정할 수 있는 파일 레벨.
+비활성화 시기 : DATETIME
+그룹 유저가 비활성화 된 시기를 저장.
+비활성화 되지 않았으면 NULL 값을 가짐. 설계 노트 공 기본 키 : 그룹 유저 권한 id (대리 키)
+외래 키 :
+그룹 유저 id (그룹 유저 테이블)
+컬럼 정의 그룹 유저 권한 id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+그룹 유저 id : BIGINT, FK, NOT NULL
+어떤 그룹 유저의 권한인지 지정.
+유저 관리 권한 : BOOLEAN, NOT NULL
+유저 관리 권한 여부.
+파일 관리 권한 : BOOLEAN, NOT NULL
+파일 관리 권한 여부. 설계 노트 공 ]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v002/02.-논리적-설계1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V002/02. 논리적 설계1.md</guid><pubDate>Mon, 12 Jan 2026 08:10:30 GMT</pubDate><enclosure url="." length="0" type="false"/><content:encoded>&lt;figure&gt;&lt;img src="."&gt;&lt;/figure&gt;</content:encoded></item><item><title><![CDATA[02. 논리적 설계1]]></title><description><![CDATA[<img alt="Pasted image 20251231165641.png" src="media/pasted-image-20251231165641.png" target="_self">사람 초대 테이블 잔여 초대 인원 =&gt; 현재 초대 인원으로
+파일 공유 테이블에
+총 열람가능 횟수 추가
+열람 가능 -&gt; 열람 횟수로 수정
+공유링크가 독자적인 키 값을 가지기 때문에 독자적인 용량을 가진다.
+이 경우 유저는 부여받은 용량보다 더 많은 용량에 접근 가능하다 -&gt; 공유링크로 파일 공유하고 기존파일 삭제해도 공유링크 파일은 남아있음;; 그리고 접근 (읽기도 가능)그래서 어떻게 해야하냐면
+유저 초대할 때 자신의 파일 권한 용량에서 때어주는 식으로
+파일 공유할 때 자신의 파일 권한 용량에서 때어주는 식으로유저를 비활성화하면 초대한 유저한테 용량 반환
+유저 초대 공유링크 마감되면 잔여 용량 반환공유 테이블 마감되면 유저한테 용량 반환공유 메커니즘 뭐가 좋을까?
+지금은 새로운 권한을 생성해서 따로 부여하는 방식임
+이 방식은 여유 저장용량많큼 공유를 할 수 있음
+저장용량이 부족한 경우 공유를 할 수 없음
+키 복사본을 만들어서 (읽기만 가능 ) 그 복사본 권한을 주는 방식
+파일 crud가 꼬일 수 있음
+컬럼 정의 생성일 : DATETIME, NOT NULL, 생성된 시간.
+수정일 : DATETIME, NOT NULL, 수정된 시간.
+생성자 : BIGINT, FK, NOT NULL, 생성한 유저id (유저 테이블).
+수정자 : BIGINT, FK, NOT NULL, 수정한 유저id (유저 테이블). 설계 노트 생성일과 수정일은 데이터베이스의 기능을 사용해 자동으로 반영되도록 한다.
+생성자와 수정자는 애플리케이션 설정으로 자동화한다. 기본 키 : 유저id (대리 키)
+외래 키 : 파일 권한 키id (파일 권한 키 테이블)
+초대한 유저 (유저 테이블) 컬럼 정의 유저id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+로그인id : UQ, NOT NULL,
+사용자가 로그인 시 사용하는 아이디.
+비밀번호 : VARCHAR(255), NOT NULL,
+해시화해 저장될 비밀번호.
+이메일 : VARCHAR(50), UQ, NOT NULL,
+비밀번호 변경 기능에 사용될 이메일 주소.
+파일 권한 키id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값.
+초대한 유저 : BIGINT, FK
+해당 유저를 초대한 사람. 관리자(root)에 의해 초대된 경우 NULL 값을 가짐. 설계 노트 로그인id, 이메일은 시스템에서 고유해야 하는 자연 키 후보들이다. UNIQUE 제약조건을 걸어 데이터베이스 레벨에서 중복을 방지하였다.
+초대한 유저는 자기 자신을 참조하는 자기참조 역할을 수행한다. 최초의 관리자(Root)이거나 시스템에 의해 자동 생성된 경우에만 NULL 값을 가지며, 그 외에는 자신을 초대한 유저의 ID를 저장하여 초대 계층을 유지한다.
+파일 권한 키id 는 해당 유저가 소유하는 파일의 접근 키 값을 의미한다. 유저는 파일을 소유하는 것이 아니라 접근 권한을 가진다. 기본 키 : 공유링크id (대리 키)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 공유 링크id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+공유된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 어떤 공유 링크로 접속했는지 나타냄.
+링크 타입 : VARCHAR(15), NOT NULL,
+공유된 링크가 어떤 타입인지 저장. (user_invite, file_share)
+공유 기간 : DATETIME, NOT NULL,
+공유할 수 있는 기간
+활성 상태 : BOOLEAN, NOT NULL,
+이용할 수 있는지 여부를 저장.
+공유 기간, 사람 초대 테이블의 초대 인원, 파일 공유 테이블의 열람 가능 횟수 조건을 체크해서 값 반영 설계 노트 공유된 UUID는 시스템상 유일해야 하는 값이며, 다른 값으로 유츄할 수 없어야 한다. 랜덤한 문자열을 생성해 유추할 수 없도록 하였다.
+링크 타입은 해당 링크가 어떤 타입인지 나타내는 값이다. 나타내는 값으로는 유저 초대, 파일 공유 2가지 뿐이라 BOOLEAN 타입으로 해도 되었으나, 앞으로의 확장성을 고려해 ENUM 타입으로 지정하였다.
+활성 상태는 해당 링크가 사용할 수 있는 상태인지 나타내는 값이다. 이 값은 공유 기간, 사람 초대 테이블의 남은 초대 인원, 파일 공유 테이블의 열람 가능 횟수 3가지 값에 따라 변하도록 설계하였으며, 공유링크의 주인(유저id)이 지정할 수도 있다. 기본 키 : 사람 초대id (대리 키)
+외래 키 : 공유 링크id (공유 링크 테이블)
+컬럼 정의 사람 초대id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+총 초대 인원 : INT, NOT NULL
+해당 링크로 초대될 수 있는 최대 인원.
+현재 초대 인원 : INT, NOT NULL
+해당 링크로 초대한 인원.
+총 초대 인원과 같은 값이 될 경우 공유링크 테이블의 활성 상태 값이 false로 바꿈
+공유 링크id : BIGINT, FK, NOT NULL
+칼럼이 어떤 링크인지 나타내는 공유 링크 테이블의 PK 설계 노트 현재 초대 인원은 해당 링크로 몇 명을 초대했는지 나타내는 값이다. 해당 값이 총 초대 인원과 같아질 경우 공유링크 테이블의 활성 상태를 FALSE로 수정한다. 기본 키 : 파일 공유id (대리 키)
+외래 키 : 공유 링크id (공유 링크 테이블)
+파일 권한 키id (파일 권한 키 테이블) 컬럼 정의 파일 공유id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+총 열람 가능 횟수 : INT, NOT NULL
+해당 공유 링크에 접속할 수 있는 최대 횟수
+열람 횟수 : INT, NOT NULL
+지금까지 해당 공유 링크에 접속한 횟수
+공유 링크id : BIGINT, FK, NOT NULL
+칼럼이 어떤 링크인지 나타내는 공유 링크 테이블의 PK
+파일 권한 키id : BIGINT, FK, NOT NULL,
+파일에 접근할 수 있는 권한을 나타내는 키 값. 설계 노트 열람 횟수는 해당 링크가 몇 번 열람 되었는지 나타내는 값이다. 해당 값이 총 열람 횟수와 같아질 경우 공유링크 테이블의 활성 상태를 FALSE로 수정한다.
+파일 권한 키id 는 해당 공유 링크가 소유하는 파일의 접근 키 값을 의미한다. 이 경우 쓰기 권한은 주어지지 않는다. 기본 키 : 권한id (대리 키)
+외래 키 : 유저id (유저 테이블)
+컬럼 정의 권한id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+사람 초대 권한 : BOOLEAN, NOT NULL
+유저가 새로운 유저를 초대할 수 있는지 나타내는 값.
+파일 공유 권한 : BOOLEAN, NOT NULL
+유저가 파일 공유 링크를 만들어 파일을 공유할 수 있는지 나타는 값.
+개인 파일 권한 : BOOLEAN, NOT NULL
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값
+유저id : BIGINT, FK, NOT NULL
+해당 권한이 어떤 유저의 권한인지 나타내는 값. 설계 노트 암튼 설명스 기본 키 : 파일 권한 키id (대리 키)
+컬럼 정의 파일 권한 키id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+타입 : VARCHAR(10), NOT NULL,
+권한의 소유가 어떤 타입인지 저장. (user, share)
+할당된 저장 용량 : BIGINT, NOT NULL,
+권한에 저장할 수 있는 가상 파일의 총 저장 용량. (바이트 단위) 설계 노트 암튼 설명스 기본 키 : 파일 권한id (대리 키)
+외래 키 : 파일 권한 키id (파일 권한 키 테이블)
+가상 경로id (가상 경로 테이블) 컬럼 정의 파일 권한id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+읽기 권한 : BOOLEAN, NOT NULL,
+해당 파일 요소를 확인할 수 있는지 나타내는 값.
+수정 권한 : BOOLEAN, NOT NULL,
+해당 파일 요소를 수정할 수 있는지 나타내는 값.
+수정은 이름 변경, 위치 이동, 삭제 작업을 통칭.
+파일 권한 키id : BIGINT, FK, NOT NULL
+해당 권한을 나타내는 키 값. 설계 노트 암튼 설명스 기본 키 : 가상 요소id (대리 키)
+외래 키 : 파일 권한id (파일 권한 테이블)
+컬럼 정의 가상 요소id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+지정된 이름 : VARCHAR(100), NOT NULL,
+유저가 확인할 수 있는 해당 요소의 이름. 타입 : VARCHAR(15), NOT NULL,
+요소가 어떤 타입인지 저장. (file, directory)
+파일 권한id : BIGINT, FK, NOT NULL
+요소가 어떤 권한인지 나타내는 값 설계 노트 암튼 설명스 기본 키 : 가상 파일id (대리 키)
+외래 키 : 가상 요소id (가상 요소 테이블)
+실제 파일id (실제 파일 테이블) 컬럼 정의 가상 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+파일 크기 : BIGINT, NOT NULL,
+가상 파일이 나타내는 실제 파일의 저장 용량. (바이트 단위)
+파일 확장자 : VARCHAR(50), NOT NULL
+가상 파일의 확장자.
+가상 요소id : BIGINT, FK, NOT NULL
+가상 파일이 어떤 요소인지 나타내는 값.
+실제 파일id : BIGINT, FK, NOT NULL
+가상 파일이 나타내는 실제 파일id 값. 설계 노트 암튼 설명스 기본 키 : 실제 파일id (대리 키)
+컬럼 정의 실제 파일id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+저장된 UUID : VARCHAR(32), UQ, NOT NULL,
+SecureRandom으로 생성된 문자열 실제로 파일이 저장된 이름. 설계 노트 암튼 설명스 기본 키 : 가상 디렉터리id (대리 키)
+외래 키 :
+가상 디렉터리id (가상 디렉터리 테이블)
+가상 요소id (가상 요소 테이블)
+컬럼 정의 가상 디렉터리id : BIGINT, PK,
+시스템이 자동으로 생성하는 고유 번호.
+디렉터리 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 디렉터리 개수.
+파일 개수 : INT, NOT NULL
+해당 디렉터리 하위에 있는 파일 개수.
+크기 : BIGINT, NOT NULL
+해당 디렉터리 하위에 있는 파일의 총 용량
+현재 레벨 : INT, NOT NULL
+해당 디렉터리의 부모 개수
+가상 디렉터리id : BIGINT, FK,
+해당 디렉터리의 부모 디렉터리id
+null 인 경우 해당 권한의 최상위 디렉터리(root).
+가상 요소id : BIGINT, FK, NOT NULL
+가상 디렉터리가가 어떤 요소인지 나타내는 값. 설계 노트 암튼 설명스 ]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V001/02. 논리적 설계1.md</guid><pubDate>Mon, 05 Jan 2026 11:45:01 GMT</pubDate><enclosure url="." length="0" type="false"/><content:encoded>&lt;figure&gt;&lt;img src="."&gt;&lt;/figure&gt;</content:encoded></item><item><title><![CDATA[01. 개념적 설계1]]></title><description><![CDATA[<img alt="Pasted image 20251227170233.png" src="media/pasted-image-20251227170233.png" target="_self">]]></description><link>개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/01.-개념적-설계1.html</link><guid isPermaLink="false">개인 파일 공유 서버(진행 중)/99. 이전 기록/데이터베이스 설계/V001/01. 개념적 설계1.md</guid><pubDate>Sat, 27 Dec 2025 08:02:35 GMT</pubDate><enclosure url="." length="0" type="false"/><content:encoded>&lt;figure&gt;&lt;img src="."&gt;&lt;/figure&gt;</content:encoded></item></channel></rss>

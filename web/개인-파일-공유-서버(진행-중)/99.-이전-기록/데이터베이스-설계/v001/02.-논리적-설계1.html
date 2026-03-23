@@ -1,0 +1,306 @@
+<!DOCTYPE html> <html lang="ko"><head>
+<title>02. 논리적 설계1</title>
+<base href="../../../..">
+<meta name="pathname" content="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html">
+<meta name="description" content="brain_obsidian - 02. 논리적 설계1">
+<meta property="og:title" content="02. 논리적 설계1">
+<meta property="og:description" content="brain_obsidian - 02. 논리적 설계1">
+<meta property="og:type" content="website">
+<meta property="og:url" content="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html">
+<meta property="og:image" content="media/pasted-image-20251231165641.png">
+<meta charset="UTF-8"><meta property="og:site_name" content="brain_obsidian"><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=1.0, maximum-scale=5.0"><link rel="alternate" type="application/rss+xml" title="RSS Feed" href="site-lib/rss.xml"><script async="" id="webpage-script" src="site-lib/scripts/webpage.js" onload="this.onload=null;this.setAttribute(&quot;loaded&quot;, &quot;true&quot;)"></script><script async="" id="graph-wasm-script" src="site-lib/scripts/graph-wasm.js" onload="this.onload=null;this.setAttribute(&quot;loaded&quot;, &quot;true&quot;)"></script><script async="" id="graph-render-worker-script" src="site-lib/scripts/graph-render-worker.js" onload="this.onload=null;this.setAttribute(&quot;loaded&quot;, &quot;true&quot;)"></script><link rel="icon" href="site-lib/media/favicon.png"><link rel="preload" href="site-lib/styles/snippets.css" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="site-lib/styles/snippets.css"></noscript><link rel="stylesheet" href="site-lib/styles/obsidian.css"><link rel="preload" href="site-lib/styles/other-plugins.css" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="site-lib/styles/other-plugins.css"></noscript><link rel="preload" href="site-lib/styles/global-variable-styles.css" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="site-lib/styles/global-variable-styles.css"></noscript><link rel="preload" href="site-lib/styles/supported-plugins.css" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="site-lib/styles/supported-plugins.css"></noscript><link rel="preload" href="site-lib/styles/main-styles.css" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="site-lib/styles/main-styles.css"></noscript><style>body{--line-width:40em;--line-width-adaptive:40em;--file-line-width:40em;--sidebar-width:min(20em, 80vw);--collapse-arrow-size:11px;--tree-vertical-spacing:1.3em;--sidebar-margin:12px}:root{background-color:#202124}.sidebar{height:100%;font-size:14px;z-index:10;min-width:calc(var(--sidebar-width) + var(--divider-width-hover));max-width:calc(var(--sidebar-width) + var(--divider-width-hover));position:relative;overflow:hidden;overflow:clip;transition:min-width ease-in-out,max-width ease-in-out;transition-duration:.2s;contain:size}#left-sidebar{left:0}#right-sidebar{right:0}.sidebar.is-collapsed{min-width:0;max-width:0}.sidebar.floating{position:absolute}.sidebar .leaf-content{height:100%;min-width:calc(var(--sidebar-width) - var(--divider-width-hover));top:0;padding:var(--sidebar-margin);padding-top:4em;line-height:var(--line-height-tight);background-color:var(--background-secondary);transition:background-color,border-right,border-left,box-shadow;transition-duration:var(--color-fade-speed);transition-timing-function:ease-in-out;position:absolute;display:flex;flex-direction:column}.sidebar:not(.is-collapsed) .leaf-content{min-width:calc(max(100%,var(--sidebar-width)) - 3px);max-width:calc(max(100%,var(--sidebar-width)) - 3px)}#left-sidebar-content{left:0;border-top-right-radius:var(--radius-l);border-bottom-right-radius:var(--radius-l)}#right-sidebar-content{right:0;border-top-left-radius:var(--radius-l);border-bottom-left-radius:var(--radius-l)}.sidebar #left-sidebar-content,.sidebar #right-sidebar-content{contain:none!important;container-type:normal!important;animation:none!important}.sidebar:has(.leaf-content:empty):has(.topbar-content:empty){display:none}.sidebar-topbar{height:calc(2.3em + 2 * var(--sidebar-margin));width:var(--sidebar-width);padding:var(--sidebar-margin);z-index:1;position:fixed;display:flex;align-items:center;transition:width ease-in-out;transition-duration:inherit}.sidebar.is-collapsed .sidebar-topbar{width:calc(2.3em + var(--sidebar-margin) * 2)}.sidebar .sidebar-topbar.is-collapsed{width:0}#left-sidebar .sidebar-topbar{left:0;flex-direction:row;border-top-right-radius:var(--radius-l)}#right-sidebar .sidebar-topbar{right:0;flex-direction:row-reverse;border-top-left-radius:var(--radius-l)}#left-sidebar .topbar-content{margin-right:calc(2.3em + var(--sidebar-margin));flex-direction:row}#right-sidebar .topbar-content{margin-left:calc(2.3em + var(--sidebar-margin));flex-direction:row-reverse}.topbar-content{overflow:hidden visible;overflow:clip visible;width:100%;height:100%;display:flex;align-items:center;transition:inherit}.sidebar.is-collapsed .topbar-content{width:0;transition:inherit}.clickable-icon.sidebar-collapse-icon{background-color:transparent;color:var(--icon-color-focused);padding:2px!important;margin:0!important;height:100%!important;width:2.3em!important;margin-inline:0.14em!important;position:absolute}#left-sidebar .clickable-icon.sidebar-collapse-icon{transform:rotateY(180deg);right:var(--sidebar-margin)}#right-sidebar .clickable-icon.sidebar-collapse-icon{transform:rotateY(180deg);left:var(--sidebar-margin)}.clickable-icon.sidebar-collapse-icon svg.svg-icon{width:100%;height:100%}.feature-title{margin-left:1px;text-transform:uppercase;letter-spacing:.06em;margin-top:.75em;margin-bottom:.75em}.feature-header{display:flex;align-items:center;padding-top:0;font-size:1em;padding-left:0}body.floating-sidebars .sidebar{position:absolute}body{transition:background-color var(--color-fade-speed) ease-in-out}#navbar:not(:empty){display:flex;align-items:center;justify-content:space-between;padding:.5em 1em;width:100%}#main{display:flex;flex-direction:column;height:100%;width:100%;align-items:stretch;justify-content:center}#main-horizontal{display:flex;flex-direction:row;flex-grow:1;width:100%;align-items:stretch;justify-content:center}#center-content{flex-basis:100%;max-width:100%;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;transition:opacity .2s ease-in-out;contain:inline-size}.hide{opacity:0!important;transition:opacity .2s ease-in-out;pointer-events:none}#center-content>.obsidian-document{padding-left:2em;padding-right:1em;margin-bottom:0;width:100%;width:-webkit-fill-available;width:-moz-available;width:fill-available;transition:background-color var(--color-fade-speed) ease-in-out;border-top-right-radius:var(--window-radius,var(--radius-m));border-top-left-radius:var(--window-radius,var(--radius-m));overflow-x:hidden!important;overflow-y:auto!important;display:flex!important;flex-direction:column!important;align-items:center!important;contain:inline-size}body #center-content>.obsidian-document>.markdown-preview-sizer{padding-bottom:80vh;width:100%;max-width:var(--line-width);flex-basis:var(--line-width);transition:background-color var(--color-fade-speed) ease-in-out;contain:inline-size}#center-content>.obsidian-document>div{width:100%!important;transition:background-color var(--color-fade-speed) ease-in-out;contain:inline-size}#center-content>.obsidian-document:not([data-type=markdown]).embed{display:flex;padding:1em;height:100%;width:100%;align-items:center;justify-content:center}#center-content>.obsidian-document:not([data-type=markdown]).embed>*{max-width:100%;max-height:100%;object-fit:contain}:not(h1,h2,h3,h4,h5,h6,li):has(> :is(.math,table)){overflow-x:auto!important}#center-content>.obsidian-document:not([data-type=markdown]){overflow-x:auto;contain:content;padding:0;margin:0;height:100%}.obsidian-document[data-type=attachment]{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%}.obsidian-document[data-type=attachment]>*{outline:0;border:none;box-shadow:none}.obsidian-document[data-type=attachment] :is(img){max-width:90%;max-height:90%;object-fit:contain}.obsidian-document[data-type=attachment]>:is(audio){width:100%;max-width:min(90%,var(--line-width))}.obsidian-document[data-type=attachment]>:is(embed,iframe,video){width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain}.canvas-wrapper>:is(.header,.footer){z-index:100;position:absolute;display:flex;justify-content:center;flex-direction:column;width:100%;align-items:center}.scroll-highlight{position:absolute;width:100%;height:100%;pointer-events:none;z-index:1000;background-color:hsla(var(--color-accent-hsl),.25);opacity:0;padding:1em;inset:50%;translate:-50% -50%;border-radius:var(--radius-s)}</style><script defer="">async function loadIncludes(){let e=document.querySelectorAll("link[itemprop='include']");for(const t of e){let e=t.getAttribute("href");try{let o="";if(e.startsWith("https:")||e.startsWith("http:")||"file:"!=window.location.protocol){const n=await fetch(e);if(!n.ok){console.log("Could not include file: "+e),t?.remove();continue}o=await n.text()}else{const t=document.getElementById(btoa(encodeURI(e)));if(t){const e=JSON.parse(decodeURI(atob(t.getAttribute("value")??"")));o=e?.data??""}}let n=document.createRange().createContextualFragment(o);t.before(n),t.remove(),console.log("Included text: "+o),console.log("Included file: "+e)}catch(o){t?.remove(),console.log("Could not include file: "+e,o);continue}}}document.addEventListener("DOMContentLoaded",(()=>{loadIncludes()}));let isFileProtocol="file:"==location.protocol;function waitLoadScripts(e,t){let o=e.map((e=>document.getElementById(e+"-script")));!function e(n){let l=o[n],c=n+1;l?(l&&"true"!=l.getAttribute("loaded")||n<o.length&&e(c),n<o.length&&l.addEventListener("load",(()=>e(c)))):n<o.length?e(c):t()}(0)}</script></head><body class="publish css-settings-manager styled-scrollbars show-inline-title show-ribbon code-styler code-styler-style-inline code-styler-gutter-highlight is-focused"><script defer="">let theme=localStorage.getItem("theme")||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");"dark"==theme?(document.body.classList.add("theme-dark"),document.body.classList.remove("theme-light")):(document.body.classList.add("theme-light"),document.body.classList.remove("theme-dark")),window.innerWidth<480?document.body.classList.add("is-phone"):window.innerWidth<768?document.body.classList.add("is-tablet"):window.innerWidth<1024?document.body.classList.add("is-small-screen"):document.body.classList.add("is-large-screen")</script><div class="parsed-feature-container" style="display: contents;"><link itemprop="include" href="site-lib/html/custom-head-content-content.html"></div><div id="main"><div id="navbar"></div><div id="main-horizontal"><div id="left-content" class="leaf" style="--sidebar-width: var(--sidebar-width-left);"><div id="left-sidebar" class="sidebar"><div class="sidebar-handle"></div><div class="sidebar-topbar"><div class="topbar-content"><div id="search-container"><div id="search-wrapper"><input enterkeyhint="search" type="search" spellcheck="false" placeholder="Search..."><div aria-label="Clear search" id="search-clear-button"></div></div></div></div><div class="clickable-icon sidebar-collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="svg-icon"><path d="M21 3H3C1.89543 3 1 3.89543 1 5V19C1 20.1046 1.89543 21 3 21H21C22.1046 21 23 20.1046 23 19V5C23 3.89543 22.1046 3 21 3Z"></path><path d="M10 4V20"></path><path d="M4 7H7"></path><path d="M4 10H7"></path><path d="M4 13H7"></path></svg></div></div><div class="sidebar-content-wrapper"><div id="left-sidebar-content" class="leaf-content"><link itemprop="include" href="site-lib/html/file-tree-content.html"></div></div><script defer="">let ls = document.querySelector("#left-sidebar"); ls.classList.toggle("is-collapsed", window.innerWidth < 768); ls.style.setProperty("--sidebar-width", localStorage.getItem("sidebar-left-width"));</script></div></div><div id="center-content" class="leaf"><div class="obsidian-document markdown-preview-view markdown-rendered node-insert-event is-readable-line-width allow-fold-headings allow-fold-lists show-indentation-guide show-properties" data-type="markdown"><style id="MJX-CHTML-styles"></style><div class="markdown-preview-sizer markdown-preview-section"><div class="header"><h1 class="page-title heading inline-title" id="2._논리적_설계1_0">2. 논리적 설계1</h1><div class="data-bar"></div></div><div class="markdown-preview-pusher" style="width: 1px; height: 0.1px; margin-bottom: 0px;"></div><div class="el-p"><p dir="auto"><span alt="Pasted image 20251231165641.png" src="media/pasted-image-20251231165641.png" class="internal-embed media-embed image-embed is-loaded" target="_self"><img alt="Pasted image 20251231165641.png" src="media/pasted-image-20251231165641.png" target="_self"></span></p></div><div class="el-p"><p dir="auto">사람 초대 테이블 잔여 초대 인원 =&gt; 현재 초대 인원으로<br>
+파일 공유 테이블에<br>
+총 열람가능 횟수 추가<br>
+열람 가능 -&gt; 열람 횟수로 수정<br>
+공유링크가 독자적인 키 값을 가지기 때문에 독자적인 용량을 가진다.<br>
+이 경우 유저는 부여받은 용량보다 더 많은 용량에 접근 가능하다 -&gt; 공유링크로 파일 공유하고 기존파일 삭제해도 공유링크 파일은 남아있음;; 그리고 접근 (읽기도 가능)</p></div><div class="el-p"><p dir="auto">그래서 어떻게 해야하냐면<br>
+유저 초대할 때 자신의 파일 권한 용량에서 때어주는 식으로<br>
+파일 공유할 때 자신의 파일 권한 용량에서 때어주는 식으로</p></div><div class="el-p"><p dir="auto">유저를 비활성화하면 초대한 유저한테 용량 반환<br>
+유저 초대 공유링크 마감되면 잔여 용량 반환</p></div><div class="el-p"><p dir="auto">공유 테이블 마감되면 유저한테 용량 반환</p></div><div class="el-p"><p dir="auto">공유 메커니즘 뭐가 좋을까?<br>
+지금은 새로운 권한을 생성해서 따로 부여하는 방식임<br>
+이 방식은 여유 저장용량많큼 공유를 할 수 있음<br>
+저장용량이 부족한 경우 공유를 할 수 없음<br>
+키 복사본을 만들어서 (읽기만 가능 ) 그 복사본 권한을 주는 방식<br>
+파일 crud가 꼬일 수 있음</p></div><div class="el-h4"><h4 data-heading="기본 컬럼" dir="auto" class="heading" id="기본_컬럼_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>기본 컬럼</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="1" dir="auto"><span class="list-bullet"></span>생성일 : DATETIME, NOT NULL, 생성된 시간.</li>
+<li data-line="2" dir="auto"><span class="list-bullet"></span>수정일 : DATETIME, NOT NULL, 수정된 시간.</li>
+<li data-line="3" dir="auto"><span class="list-bullet"></span>생성자 : BIGINT, FK, NOT NULL, 생성한 유저id (유저 테이블).</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span>수정자 : BIGINT, FK, NOT NULL, 수정한 유저id (유저 테이블).</li>
+</ul>
+</li>
+<li data-line="5" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="6" dir="auto"><span class="list-bullet"></span>생성일과 수정일은 데이터베이스의 기능을 사용해 자동으로 반영되도록 한다.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>생성자와 수정자는 애플리케이션 설정으로 자동화한다.</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="유저 테이블" dir="auto" class="heading" id="유저_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>유저 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 유저id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>외래 키 : 
+<ul class="has-list-bullet">
+<li data-line="2" dir="auto"><span class="list-bullet"></span>파일 권한 키id (파일 권한 키 테이블)</li>
+<li data-line="3" dir="auto"><span class="list-bullet"></span>초대한 유저 (유저 테이블)</li>
+</ul>
+</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="5" dir="auto"><span class="list-bullet"></span>유저id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>로그인id : UQ, NOT NULL,<br>
+사용자가 로그인 시 사용하는 아이디.</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>비밀번호 : VARCHAR(255), NOT NULL,<br>
+해시화해 저장될 비밀번호.</li>
+<li data-line="11" dir="auto"><span class="list-bullet"></span>이메일 : VARCHAR(50), UQ, NOT NULL,<br>
+비밀번호 변경 기능에 사용될 이메일 주소.</li>
+<li data-line="13" dir="auto"><span class="list-bullet"></span>파일 권한 키id : BIGINT, FK, NOT NULL,<br>
+파일에 접근할 수 있는 권한을 나타내는 키 값.</li>
+<li data-line="15" dir="auto"><span class="list-bullet"></span>초대한 유저 : BIGINT, FK<br>
+해당 유저를 초대한 사람. 관리자(root)에 의해 초대된 경우 NULL 값을 가짐.</li>
+</ul>
+</li>
+<li data-line="17" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="18" dir="auto"><span class="list-bullet"></span>로그인id, 이메일은 시스템에서 고유해야 하는 자연 키 후보들이다. UNIQUE 제약조건을 걸어 데이터베이스 레벨에서 중복을 방지하였다.</li>
+<li data-line="19" dir="auto"><span class="list-bullet"></span>초대한 유저는 자기 자신을 참조하는 자기참조 역할을 수행한다. 최초의 관리자(Root)이거나 시스템에 의해 자동 생성된 경우에만 NULL 값을 가지며, 그 외에는 자신을 초대한 유저의 ID를 저장하여 초대 계층을 유지한다.</li>
+<li data-line="20" dir="auto"><span class="list-bullet"></span>파일 권한 키id 는 해당 유저가 소유하는 파일의 접근 키 값을 의미한다. 유저는 파일을 소유하는 것이 아니라 접근 권한을 가진다.</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="공유 링크 테이블" dir="auto" class="heading" id="공유_링크_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>공유 링크 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 공유링크id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span>외래 키 : 유저id (유저 테이블)</li>
+<li data-line="2" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="3" dir="auto"><span class="list-bullet"></span>공유 링크id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="5" dir="auto"><span class="list-bullet"></span>공유된 UUID : VARCHAR(32), UQ, NOT NULL,<br>
+SecureRandom으로 생성된 문자열 어떤 공유 링크로 접속했는지 나타냄.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>링크 타입 : VARCHAR(15), NOT NULL,<br>
+공유된 링크가 어떤 타입인지 저장. (user_invite, file_share)</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>공유 기간 : DATETIME, NOT NULL,<br>
+공유할 수 있는 기간</li>
+<li data-line="11" dir="auto"><span class="list-bullet"></span>활성 상태 : BOOLEAN, NOT NULL,<br>
+이용할 수 있는지 여부를 저장.<br>
+공유 기간, 사람 초대 테이블의 초대 인원, 파일 공유 테이블의 열람 가능 횟수 조건을 체크해서 값 반영</li>
+</ul>
+</li>
+<li data-line="14" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="15" dir="auto"><span class="list-bullet"></span>공유된 UUID는 시스템상 유일해야 하는 값이며, 다른 값으로 유츄할 수 없어야 한다. 랜덤한 문자열을 생성해 유추할 수 없도록 하였다.</li>
+<li data-line="16" dir="auto"><span class="list-bullet"></span>링크 타입은 해당 링크가 어떤 타입인지 나타내는 값이다. 나타내는 값으로는 유저 초대, 파일 공유 2가지 뿐이라 BOOLEAN 타입으로 해도 되었으나, 앞으로의 확장성을 고려해 ENUM 타입으로 지정하였다.</li>
+<li data-line="17" dir="auto"><span class="list-bullet"></span>활성 상태는 해당 링크가 사용할 수 있는 상태인지 나타내는 값이다. 이 값은 공유 기간, 사람 초대 테이블의 남은 초대 인원, 파일 공유 테이블의 열람 가능 횟수 3가지 값에 따라 변하도록 설계하였으며, 공유링크의 주인(유저id)이 지정할 수도 있다.</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="사람 초대 테이블" dir="auto" class="heading" id="사람_초대_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>사람 초대 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 사람 초대id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span>외래 키 : 공유 링크id (공유 링크 테이블)</li>
+<li data-line="2" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="3" dir="auto"><span class="list-bullet"></span>사람 초대id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="5" dir="auto"><span class="list-bullet"></span>총 초대 인원 : INT, NOT NULL<br>
+해당 링크로 초대될 수 있는 최대 인원.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>현재 초대 인원 : INT, NOT NULL<br>
+해당 링크로 초대한 인원.<br>
+총 초대 인원과 같은 값이 될 경우 공유링크 테이블의 활성 상태 값이 false로 바꿈</li>
+<li data-line="10" dir="auto"><span class="list-bullet"></span>공유 링크id : BIGINT, FK, NOT NULL<br>
+칼럼이 어떤 링크인지 나타내는 공유 링크 테이블의 PK</li>
+</ul>
+</li>
+<li data-line="12" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="13" dir="auto"><span class="list-bullet"></span>현재 초대 인원은 해당 링크로 몇 명을 초대했는지 나타내는 값이다. 해당 값이 총 초대 인원과 같아질 경우 공유링크 테이블의 활성 상태를 FALSE로 수정한다.</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="파일 공유 테이블" dir="auto" class="heading" id="파일_공유_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>파일 공유 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 파일 공유id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>외래 키 :
+<ul class="has-list-bullet">
+<li data-line="2" dir="auto"><span class="list-bullet"></span>공유 링크id (공유 링크 테이블)</li>
+<li data-line="3" dir="auto"><span class="list-bullet"></span>파일 권한 키id (파일 권한 키 테이블)</li>
+</ul>
+</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="5" dir="auto"><span class="list-bullet"></span>파일 공유id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>총 열람 가능 횟수 : INT, NOT NULL<br>
+해당 공유 링크에 접속할 수 있는 최대 횟수</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>열람 횟수 : INT, NOT NULL<br>
+지금까지 해당 공유 링크에 접속한 횟수</li>
+<li data-line="11" dir="auto"><span class="list-bullet"></span>공유 링크id : BIGINT, FK, NOT NULL<br>
+칼럼이 어떤 링크인지 나타내는 공유 링크 테이블의 PK</li>
+<li data-line="13" dir="auto"><span class="list-bullet"></span>파일 권한 키id : BIGINT, FK, NOT NULL,<br>
+파일에 접근할 수 있는 권한을 나타내는 키 값.</li>
+</ul>
+</li>
+<li data-line="15" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="16" dir="auto"><span class="list-bullet"></span>열람 횟수는 해당 링크가 몇 번 열람 되었는지 나타내는 값이다. 해당 값이 총 열람 횟수와 같아질 경우 공유링크 테이블의 활성 상태를 FALSE로 수정한다.</li>
+<li data-line="17" dir="auto"><span class="list-bullet"></span>파일 권한 키id 는 해당 공유 링크가 소유하는 파일의 접근 키 값을 의미한다. 이 경우 쓰기 권한은 주어지지 않는다.</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="권한 테이블" dir="auto" class="heading" id="권한_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>권한 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 권한id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span>외래 키 : 유저id (유저 테이블)</li>
+<li data-line="2" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="3" dir="auto"><span class="list-bullet"></span>권한id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="5" dir="auto"><span class="list-bullet"></span>사람 초대 권한 : BOOLEAN, NOT NULL<br>
+유저가 새로운 유저를 초대할 수 있는지 나타내는 값.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>파일 공유 권한 : BOOLEAN, NOT NULL<br>
+유저가 파일 공유 링크를 만들어 파일을 공유할 수 있는지 나타는 값.</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>개인 파일 권한 : BOOLEAN, NOT NULL<br>
+유저가 개인적인 파일을 저장할 수 있는지 나타내는 값</li>
+<li data-line="11" dir="auto"><span class="list-bullet"></span>유저id : BIGINT, FK, NOT NULL<br>
+해당 권한이 어떤 유저의 권한인지 나타내는 값.</li>
+</ul>
+</li>
+<li data-line="13" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="14" dir="auto"><span class="list-bullet"></span>암튼 설명스</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="파일 권한 키 테이블" dir="auto" class="heading" id="파일_권한_키_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>파일 권한 키 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 파일 권한 키id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="2" dir="auto"><span class="list-bullet"></span>파일 권한 키id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span>타입 : VARCHAR(10), NOT NULL,<br>
+권한의 소유가 어떤 타입인지 저장. (user, share)</li>
+<li data-line="6" dir="auto"><span class="list-bullet"></span>할당된 저장 용량 : BIGINT, NOT NULL,<br>
+권한에 저장할 수 있는 가상 파일의 총 저장 용량. (바이트 단위)</li>
+</ul>
+</li>
+<li data-line="8" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="9" dir="auto"><span class="list-bullet"></span>암튼 설명스</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="파일 권한 테이블" dir="auto" class="heading" id="파일_권한_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>파일 권한 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 파일 권한id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>외래 키 : 
+<ul class="has-list-bullet">
+<li data-line="2" dir="auto"><span class="list-bullet"></span>파일 권한 키id (파일 권한 키 테이블)</li>
+<li data-line="3" dir="auto"><span class="list-bullet"></span>가상 경로id (가상 경로 테이블)</li>
+</ul>
+</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="5" dir="auto"><span class="list-bullet"></span>파일 권한id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>읽기 권한 : BOOLEAN, NOT NULL,<br>
+해당 파일 요소를 확인할 수 있는지 나타내는 값.</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>수정 권한 : BOOLEAN, NOT NULL,<br>
+해당 파일 요소를 수정할 수 있는지 나타내는 값.<br>
+수정은 이름 변경, 위치 이동, 삭제 작업을 통칭.</li>
+<li data-line="12" dir="auto"><span class="list-bullet"></span>파일 권한 키id : BIGINT, FK, NOT NULL<br>
+해당 권한을 나타내는 키 값.</li>
+</ul>
+</li>
+<li data-line="14" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="15" dir="auto"><span class="list-bullet"></span>암튼 설명스</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="가상 요소 테이블" dir="auto" class="heading" id="가상_요소_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>가상 요소 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 가상 요소id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span>외래 키 : 파일 권한id (파일 권한 테이블)</li>
+<li data-line="2" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="3" dir="auto"><span class="list-bullet"></span>가상 요소id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="5" dir="auto"><span class="list-bullet"></span>지정된 이름 : VARCHAR(100), NOT NULL,<br>
+유저가 확인할 수 있는 해당 요소의 이름. </li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>타입 : VARCHAR(15), NOT NULL,<br>
+요소가 어떤 타입인지 저장. (file, directory)</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>파일 권한id : BIGINT, FK, NOT NULL<br>
+요소가 어떤 권한인지 나타내는 값</li>
+</ul>
+</li>
+<li data-line="11" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="12" dir="auto"><span class="list-bullet"></span>암튼 설명스</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="가상 파일 테이블" dir="auto" class="heading" id="가상_파일_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>가상 파일 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 가상 파일id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>외래 키 : 
+<ul class="has-list-bullet">
+<li data-line="2" dir="auto"><span class="list-bullet"></span>가상 요소id (가상 요소 테이블)</li>
+<li data-line="3" dir="auto"><span class="list-bullet"></span>실제 파일id (실제 파일 테이블)</li>
+</ul>
+</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="5" dir="auto"><span class="list-bullet"></span>가상 파일id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>파일 크기 : BIGINT, NOT NULL,<br>
+가상 파일이 나타내는 실제 파일의 저장 용량. (바이트 단위)</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>파일 확장자 : VARCHAR(50), NOT NULL<br>
+가상 파일의 확장자.</li>
+<li data-line="11" dir="auto"><span class="list-bullet"></span>가상 요소id : BIGINT, FK, NOT NULL<br>
+가상 파일이 어떤 요소인지 나타내는 값.</li>
+<li data-line="13" dir="auto"><span class="list-bullet"></span>실제 파일id : BIGINT, FK, NOT NULL<br>
+가상 파일이 나타내는 실제 파일id 값.</li>
+</ul>
+</li>
+<li data-line="15" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="16" dir="auto"><span class="list-bullet"></span>암튼 설명스</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="실제 파일 테이블" dir="auto" class="heading" id="실제_파일_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>실제 파일 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 실제 파일id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="2" dir="auto"><span class="list-bullet"></span>실제 파일id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span>저장된 UUID : VARCHAR(32), UQ, NOT NULL,<br>
+SecureRandom으로 생성된 문자열 실제로 파일이 저장된 이름.</li>
+</ul>
+</li>
+<li data-line="6" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="7" dir="auto"><span class="list-bullet"></span>암튼 설명스</li>
+</ul>
+</li>
+</ul></div><div class="el-h4"><h4 data-heading="가상 디렉터리 테이블" dir="auto" class="heading" id="가상_디렉터리_테이블_0"><span class="heading-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>가상 디렉터리 테이블</h4></div><div class="el-ul"><ul class="has-list-bullet">
+<li data-line="0" dir="auto"><span class="list-bullet"></span>기본 키 : 가상 디렉터리id (대리 키)</li>
+<li data-line="1" dir="auto"><span class="list-bullet"></span>외래 키 :<br>
+가상 디렉터리id (가상 디렉터리 테이블)<br>
+가상 요소id (가상 요소 테이블)</li>
+<li data-line="4" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>컬럼 정의
+<ul class="has-list-bullet">
+<li data-line="5" dir="auto"><span class="list-bullet"></span>가상 디렉터리id : BIGINT, PK,<br>
+시스템이 자동으로 생성하는 고유 번호.</li>
+<li data-line="7" dir="auto"><span class="list-bullet"></span>디렉터리 개수 : INT, NOT NULL<br>
+해당 디렉터리 하위에 있는 디렉터리 개수.</li>
+<li data-line="9" dir="auto"><span class="list-bullet"></span>파일 개수 : INT, NOT NULL<br>
+해당 디렉터리 하위에 있는 파일 개수.</li>
+<li data-line="11" dir="auto"><span class="list-bullet"></span>크기 : BIGINT, NOT NULL<br>
+해당 디렉터리 하위에 있는 파일의 총 용량</li>
+<li data-line="13" dir="auto"><span class="list-bullet"></span>현재 레벨 : INT, NOT NULL<br>
+해당 디렉터리의 부모 개수</li>
+<li data-line="15" dir="auto"><span class="list-bullet"></span>가상 디렉터리id : BIGINT, FK,<br>
+해당 디렉터리의 부모 디렉터리id<br>
+null 인 경우 해당 권한의 최상위 디렉터리(root).</li>
+<li data-line="18" dir="auto"><span class="list-bullet"></span>가상 요소id : BIGINT, FK, NOT NULL<br>
+가상 디렉터리가가 어떤 요소인지 나타내는 값.</li>
+</ul>
+</li>
+<li data-line="20" dir="auto"><span class="list-bullet"></span><span class="list-collapse-indicator collapse-indicator collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></span>설계 노트
+<ul class="has-list-bullet">
+<li data-line="21" dir="auto"><span class="list-bullet"></span>암튼 설명스</li>
+</ul>
+</li>
+</ul></div><div class="footer"><div class="data-bar"></div></div></div></div></div><div id="right-content" class="leaf" style="--sidebar-width: var(--sidebar-width-right);"><div id="right-sidebar" class="sidebar"><div class="sidebar-handle"></div><div class="sidebar-topbar"><div class="topbar-content"></div><div class="clickable-icon sidebar-collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="svg-icon"><path d="M21 3H3C1.89543 3 1 3.89543 1 5V19C1 20.1046 1.89543 21 3 21H21C22.1046 21 23 20.1046 23 19V5C23 3.89543 22.1046 3 21 3Z"></path><path d="M10 4V20"></path><path d="M4 7H7"></path><path d="M4 10H7"></path><path d="M4 13H7"></path></svg></div></div><div class="sidebar-content-wrapper"><div id="right-sidebar-content" class="leaf-content"><div class="graph-view-wrapper"><div class="feature-header"><div class="feature-title">Interactive Graph</div></div><div class="graph-view-placeholder">
+		<div class="graph-view-container">
+			<div class="graph-icon graph-expand" role="button" aria-label="Expand" data-tooltip-position="top"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></div>
+			<div class="graph-icon graph-global" role="button" aria-label="Global Graph" data-tooltip-position="top"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon lucide-git-fork"><circle cx="12" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="6" r="3"></circle><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"></path><path d="M12 12v3"></path></svg></div>
+			<canvas id="graph-canvas" class="hide" width="512px" height="512px"></canvas>
+		</div>
+		</div></div><div id="outline" class=" tree-container"><div class="feature-header"><div class="feature-title">Table Of Contents</div><button class="clickable-icon nav-action-button tree-collapse-all" aria-label="Collapse All"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg></button></div><div class="tree-item mod-collapsible" data-depth="1"><a class="tree-item-self is-clickable mod-collapsible" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#2._논리적_설계1_0" data-path="#2._논리적_설계1_0"><div class="tree-item-icon collapse-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg></div><div class="tree-item-inner heading-link" heading-name="2. 논리적 설계1">2. 논리적 설계1</div></a><div class="tree-item-children"><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#기본_컬럼_0" data-path="#기본_컬럼_0"><div class="tree-item-inner heading-link" heading-name="기본 컬럼">기본 컬럼</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#유저_테이블_0" data-path="#유저_테이블_0"><div class="tree-item-inner heading-link" heading-name="유저 테이블">유저 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#공유_링크_테이블_0" data-path="#공유_링크_테이블_0"><div class="tree-item-inner heading-link" heading-name="공유 링크 테이블">공유 링크 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#사람_초대_테이블_0" data-path="#사람_초대_테이블_0"><div class="tree-item-inner heading-link" heading-name="사람 초대 테이블">사람 초대 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#파일_공유_테이블_0" data-path="#파일_공유_테이블_0"><div class="tree-item-inner heading-link" heading-name="파일 공유 테이블">파일 공유 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#권한_테이블_0" data-path="#권한_테이블_0"><div class="tree-item-inner heading-link" heading-name="권한 테이블">권한 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#파일_권한_키_테이블_0" data-path="#파일_권한_키_테이블_0"><div class="tree-item-inner heading-link" heading-name="파일 권한 키 테이블">파일 권한 키 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#파일_권한_테이블_0" data-path="#파일_권한_테이블_0"><div class="tree-item-inner heading-link" heading-name="파일 권한 테이블">파일 권한 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#가상_요소_테이블_0" data-path="#가상_요소_테이블_0"><div class="tree-item-inner heading-link" heading-name="가상 요소 테이블">가상 요소 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#가상_파일_테이블_0" data-path="#가상_파일_테이블_0"><div class="tree-item-inner heading-link" heading-name="가상 파일 테이블">가상 파일 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#실제_파일_테이블_0" data-path="#실제_파일_테이블_0"><div class="tree-item-inner heading-link" heading-name="실제 파일 테이블">실제 파일 테이블</div></a><div class="tree-item-children"></div></div><div class="tree-item" data-depth="4"><a class="tree-item-self is-clickable" href="개인-파일-공유-서버(진행-중)/99.-이전-기록/데이터베이스-설계/v001/02.-논리적-설계1.html#가상_디렉터리_테이블_0" data-path="#가상_디렉터리_테이블_0"><div class="tree-item-inner heading-link" heading-name="가상 디렉터리 테이블">가상 디렉터리 테이블</div></a><div class="tree-item-children"></div></div></div></div></div></div></div><script defer="">let rs = document.querySelector("#right-sidebar"); rs.classList.toggle("is-collapsed", window.innerWidth < 768); rs.style.setProperty("--sidebar-width", localStorage.getItem("sidebar-right-width"));</script></div></div></div></div></body></html>
